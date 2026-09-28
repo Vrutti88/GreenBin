@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS & AUTHENTICATION PREDICATES
+    // =========================================================================
+
+    /// Check if caller is authenticated with Firebase Authentication
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    /// Check if caller's UID matches the target user identifier
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    /// Fetch a user document from the users collection
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    /// Check if the caller has the 'collector' role
+    function isCollector() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'collector' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData(request.auth.uid).role == 'collector')
+      );
+    }
+
+    /// Check if the caller has the 'admin' role
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData(request.auth.uid).role == 'admin')
+      );
+    }
+
+    // =========================================================================
+    // USERS COLLECTION: users/{userId}
+    //
+    // Fields: name, email, phone, community, address, role, createdAt
+    //
+    // Rules:
+    // - Residents can read their own user document
+    // - Residents can update their own profile
+    // - Residents cannot modify another resident's profile
+    // - Users CANNOT assign themselves the 'collector' (or 'admin') role
+    // - Collectors and Admins can read resident profiles for pickup coordination
+    // =========================================================================
+    match /users/{userId} {
+      // 1. READ: Own user document, or collector/admin coordinating pickups
+      allow get: if isOwner(userId) || isCollector() || isAdmin();
+      allow list: if isAdmin();
+
+      // 2. CREATE: Allowed on registration with strict resident role
+      // Users are strictly forbidden from assigning themselves the collector role
+      allow create: if isOwner(userId)
+                    && request.resource.data.role == 'resident'
+                    && request.resource.data.email is string
+                    && request.resource.data.name is string;
+
+      // 3. UPDATE: Residents can update their own profile, but CANNOT change their role
+      // Role promotion to 'collector' or 'admin' can only be performed by existing admins
+      allow update: if isOwner(userId)
+                    && (request.resource.data.role == resource.data.role || isAdmin())
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      // 4. DELETE: Only owner or admin can remove account document
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // =========================================================================
+    // PICKUPS COLLECTION: pickups/{pickupId}
+    //
+    // Fields: userId, wasteCategory, pickupDate, timeSlot, address, notes, status, createdAt
+    //
+    // Rules:
+    // - Residents can create their own pickup (status = "Scheduled")
+    // - Residents can read their own pickups
+    // - Residents CANNOT read another resident's pickups
+    // - Residents CANNOT modify another resident's pickup
+    // - Residents CANNOT change another user's pickup status
+    // - Residents CANNOT mark their own pickups as "Collected" (only cancel)
+    // - Collectors CAN read all pickup requests
+    // - Collectors CAN update pickup status (e.g., to "Collected")
+    // =========================================================================
+    match /pickups/{pickupId} {
+      // 1. READ:
+      // - Residents can only read their own pickups (resource.data.userId == request.auth.uid)
+      // - Collectors and Admins can read all pickup requests
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isCollector() ||
+        isAdmin()
+      );
+
+      // 2. CREATE:
+      // - Residents can only create pickups for themselves (userId == request.auth.uid)
+      // - New pickups must be initialized with status = "Scheduled"
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.status == 'Scheduled'
+                    && request.resource.data.wasteCategory is string
+                    && request.resource.data.address is string
+                    && request.resource.data.pickupDate is timestamp
+                    && request.resource.data.createdAt is timestamp;
+
+      // 3. UPDATE:
+      // Case A: Collectors can update pickup status (e.g. to "Collected") and assignment
+      // Collectors cannot alter the resident's core pickup information (userId, wasteCategory, address, date)
+      // Case B: Residents can update their own scheduled pickup (e.g., notes, or cancel)
+      // Residents CANNOT modify another resident's pickup
+      // Residents CANNOT change another user's pickup status
+      // Residents CANNOT mark pickups as "Collected"
+      allow update: if isAuthenticated() && (
+        // Case A: Collector status update
+        (isCollector() || isAdmin()) && (
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.wasteCategory == resource.data.wasteCategory &&
+          request.resource.data.pickupDate == resource.data.pickupDate &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedTeam', 'updatedAt', 'notes'])
+        )
+        ||
+        // Case B: Resident self-management (cancel or notes update only)
+        (
+          resource.data.userId == request.auth.uid &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.wasteCategory == resource.data.wasteCategory &&
+          request.resource.data.pickupDate == resource.data.pickupDate &&
+          // Cannot change status to "Collected", only allow cancelling from "Scheduled"
+          (
+            request.resource.data.status == resource.data.status ||
+            (resource.data.status == 'Scheduled' && request.resource.data.status == 'Cancelled')
+          )
+        )
+      );
+
+      // 4. DELETE: Hard deletions are restricted to administrators
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // NOTIFICATIONS COLLECTION: notifications/{notificationId}
+    //
+    // Scoped strictly to recipient userId
+    // =========================================================================
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+    }
+
+    // =========================================================================
+    // DEFAULT CATCH-ALL: Deny all unhandled operations by default
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
