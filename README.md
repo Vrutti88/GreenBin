@@ -21,6 +21,7 @@ Follow these steps to connect your Firebase project to GreenBin.
 3. **FlutterFire CLI** installed:
    ```bash
    dart pub global activate flutterfire_cli
+   export PATH="$PATH":"$HOME/.pub-cache/bin"
    ```
 
 ---
