@@ -1,14 +1,17 @@
 export 'adaptive_navigation.dart';
 export 'app_text_field.dart';
 export 'category_card.dart';
+export 'category_illustration.dart';
 export 'date_selector.dart';
 export 'empty_state.dart';
 export 'error_state.dart';
+export 'interactive_animations.dart';
 export 'loading_state.dart';
 export 'pickup_card.dart';
 export 'primary_button.dart';
 export 'secondary_button.dart';
 export 'section_header.dart';
 export 'status_chip.dart';
+export 'stat_illustration.dart';
 export 'time_slot_selector.dart';
 export 'waste_category_card.dart';

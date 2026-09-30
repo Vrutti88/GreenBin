@@ -6,6 +6,8 @@ import '../../theme/app_text_styles.dart';
 import '../../utils/responsive_utils.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/secondary_button.dart';
+import '../../widgets/category_illustration.dart';
+import '../../widgets/interactive_animations.dart';
 
 /// Responsive Category Details Screen displaying full material rules,
 /// accepted/rejected items, sorting tips, and direct scheduling action.
@@ -84,15 +86,35 @@ class CategoryDetailsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeroBanner(category),
+        AppFadeSlide(
+          duration: const Duration(milliseconds: 220),
+          offsetDistance: 6,
+          child: _buildHeroBanner(category),
+        ),
         const SizedBox(height: 20),
-        _buildAcceptedItemsCard(category),
+        AppFadeSlide(
+          duration: const Duration(milliseconds: 260),
+          offsetDistance: 6,
+          child: _buildAcceptedItemsCard(category),
+        ),
         const SizedBox(height: 16),
-        _buildRejectedItemsCard(category),
+        AppFadeSlide(
+          duration: const Duration(milliseconds: 300),
+          offsetDistance: 6,
+          child: _buildRejectedItemsCard(category),
+        ),
         const SizedBox(height: 16),
-        _buildPreparationGuidelinesCard(category),
+        AppFadeSlide(
+          duration: const Duration(milliseconds: 340),
+          offsetDistance: 6,
+          child: _buildPreparationGuidelinesCard(category),
+        ),
         const SizedBox(height: 16),
-        _buildEnvironmentalImpactCard(category),
+        AppFadeSlide(
+          duration: const Duration(milliseconds: 380),
+          offsetDistance: 6,
+          child: _buildEnvironmentalImpactCard(category),
+        ),
         const SizedBox(height: 24),
       ],
     );
@@ -177,79 +199,118 @@ class CategoryDetailsScreen extends StatelessWidget {
   // SHARED CONTENT WIDGETS
   // =========================================================================
   Widget _buildHeroBanner(WasteCategoryItem category) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: category.color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: category.color.withValues(alpha: 0.25),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: category.color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showBadge = constraints.maxWidth >= 330;
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: category.color.withValues(alpha: 0.25),
+              width: 1.5,
             ),
-            child: Icon(category.icon, color: category.color, size: 30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        category.name,
-                        style: AppTextStyles.headlineMedium.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: category.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Recyclable',
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: category.color,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
+                // Top Eco Color Accent Strip
+                Container(
+                  height: 4,
+                  color: category.color,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  category.description,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: category.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: category.color.withValues(alpha: 0.25),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(category.icon, color: category.color, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    category.name,
+                                    style: AppTextStyles.headlineMedium.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: category.color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Recyclable',
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: category.color,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              category.description,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (showBadge) ...[
+                        const SizedBox(width: 12),
+                        CategoryIllustration(
+                          categoryName: category.name,
+                          categoryColor: category.color,
+                          size: 42,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -258,9 +319,24 @@ class CategoryDetailsScreen extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppColors.borderLight),
+        side: const BorderSide(
+          color: AppColors.borderLight,
+          width: 1.0,
+        ),
       ),
-      child: Padding(
+      color: AppColors.surfaceLight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,10 +374,18 @@ class CategoryDetailsScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.check_rounded,
-                      color: AppColors.statusCompleted,
-                      size: 18,
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: AppColors.statusCompleted.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: AppColors.statusCompleted,
+                        size: 14,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -328,9 +412,24 @@ class CategoryDetailsScreen extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppColors.borderLight),
+        side: const BorderSide(
+          color: AppColors.borderLight,
+          width: 1.0,
+        ),
       ),
-      child: Padding(
+      color: AppColors.surfaceLight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,10 +467,18 @@ class CategoryDetailsScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.close_rounded,
-                      color: AppColors.statusCancelled,
-                      size: 18,
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: AppColors.statusCancelled.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.statusCancelled,
+                        size: 14,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

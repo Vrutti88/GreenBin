@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/pickup_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'interactive_animations.dart';
 import 'status_chip.dart';
 
 /// Fully responsive card displaying a scheduled or completed pickup.
@@ -43,22 +44,41 @@ class PickupCard extends StatelessWidget {
             : 300.0;
         final maxChipTextWidth = (availableWidth - 26).clamp(40.0, double.infinity);
 
-        return Card(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.borderLight, width: 1),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+        return InteractiveBounce(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.borderLight,
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Container(
+                    height: 3.5,
+                    width: double.infinity,
+                    color: categoryColor,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(15),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                   // Header Row: Category Badge + Status Chip
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -190,9 +210,12 @@ class PickupCard extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
+    ),
+  );
+  },
     );
   }
 }

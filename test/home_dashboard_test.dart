@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:greenbin/routes/app_routes.dart';
 import 'package:greenbin/screens/home/home_screen.dart';
+import 'package:greenbin/screens/notifications/notifications_screen.dart';
 import 'package:greenbin/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,7 +50,6 @@ void main() {
       // 1. Top Greeting Header & Profile access
       expect(find.textContaining('👋'), findsOneWidget);
       expect(find.byTooltip('Resident Profile'), findsOneWidget);
-      expect(find.byTooltip('View Profile'), findsOneWidget);
 
       // 2. Notifications action in AppBar
       expect(find.byTooltip('Notifications'), findsOneWidget);
@@ -129,7 +129,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Notifications'), findsWidgets);
-      expect(find.text('Pickup Confirmed'), findsOneWidget);
+      expect(find.byType(NotificationsScreen), findsOneWidget);
     });
 
     testWidgets('Tapping profile avatar switches to Profile tab', (tester) async {

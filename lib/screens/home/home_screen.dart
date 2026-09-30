@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../models/notification_model.dart';
 import '../../models/pickup_model.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
@@ -10,10 +11,12 @@ import '../../theme/app_text_styles.dart';
 import '../../utils/responsive_utils.dart';
 import '../../widgets/adaptive_navigation.dart';
 import '../../widgets/category_card.dart';
+import '../../widgets/interactive_animations.dart';
 import '../../widgets/pickup_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/secondary_button.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/stat_illustration.dart';
 import '../../widgets/status_chip.dart';
 import '../guide/waste_guide_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -103,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  late final List<AppNavDestination> _desktopNavDestinations = [
+  List<AppNavDestination> _getDesktopNavDestinations(String? unreadBadgeText) => [
     const AppNavDestination(
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
@@ -124,11 +127,11 @@ class _HomeScreenState extends State<HomeScreen> {
       selectedIcon: Icons.local_shipping_rounded,
       label: 'My Pickups',
     ),
-    const AppNavDestination(
+    AppNavDestination(
       icon: Icons.notifications_outlined,
       selectedIcon: Icons.notifications_rounded,
       label: 'Notifications',
-      badgeText: '3',
+      badgeText: unreadBadgeText,
     ),
     const AppNavDestination(
       icon: Icons.person_outline_rounded,
@@ -272,16 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _getUserInitial() {
-    final user = _authService.currentUser;
-    final name = user?.displayName;
-    if (name != null && name.isNotEmpty) {
-      return name[0].toUpperCase();
-    }
-    return 'G';
-  }
-
-  Widget _buildTabletTrailing() {
+  Widget _buildTabletTrailing(int unreadCount) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -289,11 +283,13 @@ class _HomeScreenState extends State<HomeScreen> {
         const Divider(indent: 14, endIndent: 14, height: 1),
         const SizedBox(height: 8),
         IconButton(
-          icon: Badge(
-            label: const Text('3'),
-            backgroundColor: AppColors.statusPending,
-            child: const Icon(Icons.notifications_outlined),
-          ),
+          icon: unreadCount > 0
+              ? Badge(
+                  label: Text('$unreadCount'),
+                  backgroundColor: AppColors.statusPending,
+                  child: const Icon(Icons.notifications_outlined),
+                )
+              : const Icon(Icons.notifications_outlined),
           tooltip: 'Notifications',
           color: _activeTab == HomeNavTab.notifications
               ? AppColors.primary
@@ -335,100 +331,91 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AdaptiveNavigationScaffold(
-      currentIndex: _mobileIndex,
-      onDestinationSelected: (index) {
-        switch (index) {
-          case 0:
-            setState(() => _activeTab = HomeNavTab.home);
-            break;
-          case 1:
-            setState(() => _activeTab = HomeNavTab.guide);
-            break;
-          case 2:
-            setState(() => _activeTab = HomeNavTab.schedule);
-            break;
-          case 3:
-            setState(() => _activeTab = HomeNavTab.pickups);
-            break;
-          case 4:
-            setState(() => _activeTab = HomeNavTab.profile);
-            break;
-        }
-      },
-      destinations: _mobileNavDestinations,
-      mobileDestinations: _mobileNavDestinations,
-      tabletDestinations: _tabletNavDestinations,
-      desktopDestinations: _desktopNavDestinations,
-      tabletSelectedIndex: _mobileIndex,
-      onTabletDestinationSelected: (index) {
-        switch (index) {
-          case 0:
-            setState(() => _activeTab = HomeNavTab.home);
-            break;
-          case 1:
-            setState(() => _activeTab = HomeNavTab.guide);
-            break;
-          case 2:
-            setState(() => _activeTab = HomeNavTab.schedule);
-            break;
-          case 3:
-            setState(() => _activeTab = HomeNavTab.pickups);
-            break;
-          case 4:
-            setState(() => _activeTab = HomeNavTab.profile);
-            break;
-        }
-      },
-      tabletTrailing: _buildTabletTrailing(),
-      desktopSelectedIndex: _desktopIndex,
-      onDesktopDestinationSelected: _onDesktopSelect,
-      title: _getTabTitle(_activeTab),
-      leading: _activeTab != HomeNavTab.home
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Back to Home',
-              onPressed: () => setState(() => _activeTab = HomeNavTab.home),
-            )
-          : null,
-      actions: [
-        // Notifications action with unread badge counter
-        IconButton(
-          icon: Badge(
-            label: const Text('3'),
-            backgroundColor: AppColors.statusPending,
-            child: const Icon(Icons.notifications_outlined),
-          ),
-          tooltip: 'Notifications',
-          onPressed: () {
-            Navigator.pushNamed(context, AppRoutes.notifications);
+    final userId = _authService.currentUser?.uid ?? '';
+    final notifsStream = userId.isNotEmpty
+        ? _firestoreService.streamUserNotifications(userId)
+        : const Stream<List<NotificationModel>>.empty();
+
+    return StreamBuilder<List<NotificationModel>>(
+      stream: notifsStream,
+      builder: (context, notifsSnapshot) {
+        final notifs = notifsSnapshot.data ?? const <NotificationModel>[];
+        final unreadCount = notifs.where((n) => !n.isRead).length;
+        final unreadBadgeText = unreadCount > 0 ? '$unreadCount' : null;
+
+        return AdaptiveNavigationScaffold(
+          currentIndex: _mobileIndex,
+          onDestinationSelected: (index) {
+            switch (index) {
+              case 0:
+                setState(() => _activeTab = HomeNavTab.home);
+                break;
+              case 1:
+                setState(() => _activeTab = HomeNavTab.guide);
+                break;
+              case 2:
+                setState(() => _activeTab = HomeNavTab.schedule);
+                break;
+              case 3:
+                setState(() => _activeTab = HomeNavTab.pickups);
+                break;
+              case 4:
+                setState(() => _activeTab = HomeNavTab.profile);
+                break;
+            }
           },
-        ),
-        // Resident profile avatar access button
-        Padding(
-          padding: const EdgeInsets.only(right: 12.0),
-          child: InkWell(
-            onTap: () {
-              setState(() => _activeTab = HomeNavTab.profile);
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Tooltip(
-              message: 'Resident Profile',
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: AppColors.primaryContainer,
-                child: Text(
-                  _getUserInitial(),
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+          destinations: _mobileNavDestinations,
+          mobileDestinations: _mobileNavDestinations,
+          tabletDestinations: _tabletNavDestinations,
+          desktopDestinations: _getDesktopNavDestinations(unreadBadgeText),
+          tabletSelectedIndex: _mobileIndex,
+          onTabletDestinationSelected: (index) {
+            switch (index) {
+              case 0:
+                setState(() => _activeTab = HomeNavTab.home);
+                break;
+              case 1:
+                setState(() => _activeTab = HomeNavTab.guide);
+                break;
+              case 2:
+                setState(() => _activeTab = HomeNavTab.schedule);
+                break;
+              case 3:
+                setState(() => _activeTab = HomeNavTab.pickups);
+                break;
+              case 4:
+                setState(() => _activeTab = HomeNavTab.profile);
+                break;
+            }
+          },
+          tabletTrailing: _buildTabletTrailing(unreadCount),
+          desktopSelectedIndex: _desktopIndex,
+          onDesktopDestinationSelected: _onDesktopSelect,
+          title: _getTabTitle(_activeTab),
+          leading: _activeTab != HomeNavTab.home
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Back to Home',
+                  onPressed: () => setState(() => _activeTab = HomeNavTab.home),
+                )
+              : null,
+          actions: [
+            // Real-time unread notifications counter
+            IconButton(
+              icon: unreadCount > 0
+                  ? Badge(
+                      label: Text('$unreadCount'),
+                      backgroundColor: AppColors.statusPending,
+                      child: const Icon(Icons.notifications_outlined),
+                    )
+                  : const Icon(Icons.notifications_outlined),
+              tooltip: 'Notifications',
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.notifications);
+              },
             ),
-          ),
-        ),
-      ],
+            const SizedBox(width: 8),
+          ],
       floatingActionButton: _activeTab == HomeNavTab.home || _activeTab == HomeNavTab.pickups
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -441,6 +428,8 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : null,
       body: _buildCurrentTabBody(),
+    );
+      },
     );
   }
 
@@ -534,23 +523,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 1. Top Greeting & Profile Header
-                    _buildHeaderStats(displayName, userModel),
+                    AppFadeSlide(
+                      delay: Duration.zero,
+                      child: _buildHeaderStats(displayName, userModel),
+                    ),
                     const SizedBox(height: 20),
 
                     // 2. Schedule Pickup Hero CTA Banner
-                    _buildScheduleHeroCard(),
+                    AppFadeSlide(
+                      delay: const Duration(milliseconds: 60),
+                      child: _buildScheduleHeroCard(),
+                    ),
                     const SizedBox(height: 24),
 
                     // 3. Recycling Statistics (4 Metrics Responsive Grid)
-                    _buildRecyclingStatistics(
-                      totalPickups: totalPickupsCount,
-                      divertedKg: divertedKg,
-                      activePickups: upcomingPickups.length,
+                    AppFadeSlide(
+                      delay: const Duration(milliseconds: 120),
+                      child: _buildRecyclingStatistics(
+                        totalPickups: totalPickupsCount,
+                        divertedKg: divertedKg,
+                        activePickups: upcomingPickups.length,
+                      ),
                     ),
                     const SizedBox(height: 32),
 
                     // 4. Responsive Content Layout (Categories, Upcoming, Recent)
-                    ResponsiveBuilder(
+                    AppFadeSlide(
+                      delay: const Duration(milliseconds: 180),
+                      child: ResponsiveBuilder(
                       builder: (context, constraints, deviceType) {
                         final isDesktop = deviceType == DeviceScreenType.desktop ||
                             context.screenWidth >= 1000;
@@ -625,7 +625,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 80), // Padding for FAB
+                  ),
+                  const SizedBox(height: 80), // Padding for FAB
                   ],
                 ),
               ),
@@ -692,7 +693,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: () => setState(() => _activeTab = HomeNavTab.profile),
           borderRadius: BorderRadius.circular(24),
           child: Tooltip(
-            message: 'View Profile',
+            message: 'Resident Profile',
             child: Container(
               width: 48,
               height: 48,
@@ -728,13 +729,17 @@ class _HomeScreenState extends State<HomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: AppColors.heroGradient,
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.primaryDark.withValues(alpha: 0.18),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -918,6 +923,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? 'Eco Champion'
                 : 'Eco Explorer';
 
+        final nextPickupMilestone = ((totalPickups ~/ 5) + 1) * 5;
+        final pickupsInLevel = totalPickups % 3;
+        final pickupsNeeded = 3 - pickupsInLevel;
+
         return GridView.count(
           crossAxisCount: columns,
           shrinkWrap: true,
@@ -931,32 +940,52 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Total Pickups',
               value: '$totalPickups',
               subtitle: 'Doorstep requests',
+              badgeText: 'Lifetime',
+              progressLabel: 'Goal: $nextPickupMilestone',
               showSubtitle: showSubtitle,
               color: AppColors.primary,
+              illustrationType: StatIllustrationType.pickups,
+              watermarkIcon: Icons.local_shipping_rounded,
+              onTap: () => Navigator.pushNamed(context, AppRoutes.pickups),
             ),
             _buildStatCard(
               icon: Icons.scale_rounded,
               label: 'Diverted (kg)',
               value: '${divertedKg.toStringAsFixed(1)} kg',
               subtitle: 'Saved from landfill',
+              badgeText: 'Landfill Saved',
+              progressLabel: 'Target: 10 kg',
               showSubtitle: showSubtitle,
               color: AppColors.secondary,
+              illustrationType: StatIllustrationType.divertedKg,
+              watermarkIcon: Icons.recycling_rounded,
+              onTap: () => Navigator.pushNamed(context, AppRoutes.pickups),
             ),
             _buildStatCard(
               icon: Icons.pending_actions_rounded,
               label: 'Active Pickups',
               value: '$activePickups',
               subtitle: activePickups == 0 ? 'All collected' : 'In transit / pending',
+              badgeText: activePickups == 0 ? 'All Clear' : 'In Progress',
+              progressLabel: activePickups == 0 ? 'On schedule' : '$activePickups active',
               showSubtitle: showSubtitle,
               color: AppColors.statusPending,
+              illustrationType: StatIllustrationType.activePickups,
+              watermarkIcon: Icons.schedule_rounded,
+              onTap: () => Navigator.pushNamed(context, AppRoutes.pickups),
             ),
             _buildStatCard(
               icon: Icons.energy_savings_leaf_rounded,
               label: 'Zero-Waste Rank',
               value: 'Level $zeroWasteLevel',
               subtitle: zeroWasteRank,
+              badgeText: zeroWasteRank,
+              progressLabel: '$pickupsNeeded to Lvl ${zeroWasteLevel + 1}',
               showSubtitle: showSubtitle,
               color: AppColors.tertiary,
+              illustrationType: StatIllustrationType.zeroWasteRank,
+              watermarkIcon: Icons.military_tech_rounded,
+              onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
             ),
           ],
         );
@@ -970,80 +999,193 @@ class _HomeScreenState extends State<HomeScreen> {
     required String value,
     required String subtitle,
     required Color color,
+    required StatIllustrationType illustrationType,
+    required IconData watermarkIcon,
+    required String badgeText,
+    required String progressLabel,
+    VoidCallback? onTap,
     bool showSubtitle = true,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth;
+        final cardHeight = constraints.maxHeight;
+        final bool showBadge = cardWidth >= 165;
+        final double illustrationSize = cardWidth < 140
+            ? 30.0
+            : (cardWidth < 180 ? 34.0 : 40.0);
+
+        return InteractiveBounce(
+          onTap: onTap,
+          child: Container(
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 4),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                    maxLines: 1,
-                  ),
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.borderLight,
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  label,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (showSubtitle) ...[
-                  Text(
-                    subtitle,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textMuted,
-                      fontSize: 10,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
               ],
             ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Eco Accent Strip
+                  Container(
+                    height: 3.5,
+                    width: double.infinity,
+                    color: color,
+                  ),
+
+                  // Card Content
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: cardWidth < 140 ? 8 : 10,
+                        vertical: cardHeight < 130 ? 6 : 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Top Row: StatIllustration on left & Contextual Status Badge on right
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              StatIllustration(
+                                type: illustrationType,
+                                size: illustrationSize,
+                              ),
+                              if (showBadge)
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.09),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: color.withValues(alpha: 0.22),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 5,
+                                          height: 5,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            badgeText,
+                                            style: AppTextStyles.labelSmall.copyWith(
+                                              color: color,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 9.5,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+
+                          // Middle: Prominent Hero Metric & Category Label
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  value,
+                                  style: AppTextStyles.headlineSmall.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: -0.5,
+                                    fontSize: cardWidth < 130 ? 18 : 22,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                label,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+
+                          // Bottom: Subtitle & Status Detail Row (without progress bar line)
+                          if (showSubtitle)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    subtitle,
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    progressLabel,
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: color,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.end,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1085,15 +1227,32 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppColors.borderLight, width: 1.5),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 3.5,
+              width: double.infinity,
+              color: categoryColor,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Row: Category + Status Chip
@@ -1256,15 +1415,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
+    ],
+  ),
+),
+);
   }
 
   Widget _buildEmptyUpcomingCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.borderLight),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1422,11 +1591,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmptyRecentCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.borderLight),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -1475,16 +1651,32 @@ class _HomeScreenState extends State<HomeScreen> {
   // 7. COMMUNITY IMPACT & TIPS CARD (DESKTOP / WIDE SCREEN COMPANION)
   // =========================================================================
   Widget _buildCommunityImpactCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppColors.borderLight),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      color: AppColors.primaryContainer.withValues(alpha: 0.45),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 3.5,
+              width: double.infinity,
+              color: AppColors.primary,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1581,7 +1773,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
+    ],
+  ),
+),
+);
   }
 
   // =========================================================================

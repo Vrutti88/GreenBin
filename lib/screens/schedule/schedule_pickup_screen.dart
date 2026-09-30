@@ -12,6 +12,7 @@ import '../../widgets/date_selector.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/secondary_button.dart';
 import '../../widgets/time_slot_selector.dart';
+import '../../widgets/interactive_animations.dart';
 
 /// Responsive Schedule Pickup Screen utilizing Flutter Form, field validators,
 /// adaptive LayoutBuilder layouts (mobile single-column, tablet/desktop balanced two-column),
@@ -637,35 +638,37 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
               children: WasteCategoryItem.defaultCategories.map((cat) {
                 final isSelected =
                     _selectedCategory.toLowerCase() == cat.name.toLowerCase();
-                return ChoiceChip(
-                  avatar: Icon(
-                    cat.icon,
-                    size: 18,
-                    color: isSelected ? Colors.white : cat.color,
-                  ),
-                  label: Text(cat.name),
-                  selected: isSelected,
-                  selectedColor: cat.color,
-                  labelStyle: AppTextStyles.labelMedium.copyWith(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(
-                      color: isSelected ? cat.color : AppColors.borderLight,
+                return InteractiveBounce(
+                  child: ChoiceChip(
+                    avatar: Icon(
+                      cat.icon,
+                      size: 18,
+                      color: isSelected ? Colors.white : cat.color,
                     ),
+                    label: Text(cat.name),
+                    selected: isSelected,
+                    selectedColor: cat.color,
+                    labelStyle: AppTextStyles.labelMedium.copyWith(
+                      color: isSelected ? Colors.white : AppColors.textPrimary,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(
+                        color: isSelected ? cat.color : AppColors.borderLight,
+                      ),
+                    ),
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedCategory = cat.name;
+                          _selectedSubcategories.clear();
+                        });
+                        state.didChange(cat.name);
+                      }
+                    },
                   ),
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedCategory = cat.name;
-                        _selectedSubcategories.clear();
-                      });
-                      state.didChange(cat.name);
-                    }
-                  },
                 );
               }).toList(),
             ),
@@ -712,24 +715,26 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
           runSpacing: 8,
           children: active.acceptedItems.map((item) {
             final isSelected = _selectedSubcategories.contains(item);
-            return FilterChip(
-              label: Text(item),
-              selected: isSelected,
-              selectedColor: active.color.withValues(alpha: 0.15),
-              checkmarkColor: active.color,
-              labelStyle: AppTextStyles.bodySmall.copyWith(
-                color: isSelected ? active.color : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            return InteractiveBounce(
+              child: FilterChip(
+                label: Text(item),
+                selected: isSelected,
+                selectedColor: active.color.withValues(alpha: 0.15),
+                checkmarkColor: active.color,
+                labelStyle: AppTextStyles.bodySmall.copyWith(
+                  color: isSelected ? active.color : AppColors.textPrimary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedSubcategories.add(item);
+                    } else {
+                      _selectedSubcategories.remove(item);
+                    }
+                  });
+                },
               ),
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedSubcategories.add(item);
-                  } else {
-                    _selectedSubcategories.remove(item);
-                  }
-                });
-              },
             );
           }).toList(),
         ),
@@ -970,60 +975,79 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
         ? DateFormat('EEEE, MMM d, yyyy').format(_selectedDate!)
         : 'Not selected';
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.borderLight),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      color: AppColors.surfaceLight,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.receipt_long_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Pickup Summary',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+            Container(
+              height: 3.5,
+              width: double.infinity,
+              color: active.color,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.receipt_long_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Pickup Summary',
+                          style: AppTextStyles.titleMedium.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildSummaryRow(
-              active.icon,
-              'Category',
-              active.name,
-            ),
-            const Divider(height: 14),
-            _buildSummaryRow(
-              Icons.calendar_month_rounded,
-              'Date',
-              dateString,
-            ),
-            const Divider(height: 14),
-            _buildSummaryRow(
-              Icons.access_time_rounded,
-              'Time Window',
-              _selectedTimeSlot,
-            ),
-            const Divider(height: 14),
-            _buildSummaryRow(
-              Icons.volunteer_activism_rounded,
-              'Service Fee',
-              'Free Community Pickup',
+                  const SizedBox(height: 14),
+                  _buildSummaryRow(
+                    active.icon,
+                    'Category',
+                    active.name,
+                  ),
+                  const Divider(height: 14),
+                  _buildSummaryRow(
+                    Icons.calendar_month_rounded,
+                    'Date',
+                    dateString,
+                  ),
+                  const Divider(height: 14),
+                  _buildSummaryRow(
+                    Icons.access_time_rounded,
+                    'Time Window',
+                    _selectedTimeSlot,
+                  ),
+                  const Divider(height: 14),
+                  _buildSummaryRow(
+                    Icons.volunteer_activism_rounded,
+                    'Service Fee',
+                    'Free Community Pickup',
+                  ),
+                ],
+              ),
             ),
           ],
         ),

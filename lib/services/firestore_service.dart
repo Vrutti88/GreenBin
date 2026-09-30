@@ -112,6 +112,26 @@ class FirestoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
+    // Create real-time notification for the scheduled pickup
+    try {
+      await createNotification(
+        NotificationModel(
+          id: '',
+          userId: pickup.userId,
+          pickupId: docRef.id,
+          type: NotificationType.pickupScheduled,
+          title: 'Pickup Confirmed',
+          message:
+              'Your ${pickup.wasteCategory} waste pickup for ${pickup.pickupDate.day}/${pickup.pickupDate.month}/${pickup.pickupDate.year} at ${pickup.timeSlot} has been confirmed.',
+          timestamp: DateTime.now(),
+          isRead: false,
+          category: pickup.wasteCategory,
+        ),
+      );
+    } catch (_) {
+      // Safe fallback if notifications collection is restricted
+    }
+
     return docRef.id;
   }
 
@@ -184,6 +204,39 @@ class FirestoreService {
     }
 
     await col.doc(pickupId).update(updates);
+
+    // Create real-time notification for the status change
+    try {
+      final pickup = await getPickupById(pickupId);
+      if (pickup != null && pickup.userId.isNotEmpty) {
+        final notifTitle = status == PickupStatus.collected
+            ? 'Materials Diverted & Collected'
+            : status == PickupStatus.inTransit
+                ? 'Collection Crew En Route'
+                : 'Pickup Status Updated';
+        final notifMessage = status == PickupStatus.collected
+            ? 'Your ${pickup.wasteCategory} recycling batch was successfully collected and transported to the recovery center.'
+            : status == PickupStatus.inTransit
+                ? '${assignedTeam ?? 'Collection Crew'} is heading towards your location for the scheduled ${pickup.wasteCategory} collection.'
+                : 'Your pickup status is now ${status.displayName}.';
+
+        await createNotification(
+          NotificationModel(
+            id: '',
+            userId: pickup.userId,
+            pickupId: pickupId,
+            type: NotificationType.pickupStatusChanged,
+            title: notifTitle,
+            message: notifMessage,
+            timestamp: DateTime.now(),
+            isRead: false,
+            category: pickup.wasteCategory,
+          ),
+        );
+      }
+    } catch (_) {
+      // Safe fallback
+    }
   }
 
   /// Mark a pickup as "Collected"
@@ -203,6 +256,29 @@ class FirestoreService {
       if (reason != null && reason.isNotEmpty) 'cancellationReason': reason,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // Create real-time notification for the cancellation
+    try {
+      final pickup = await getPickupById(pickupId);
+      if (pickup != null && pickup.userId.isNotEmpty) {
+        await createNotification(
+          NotificationModel(
+            id: '',
+            userId: pickup.userId,
+            pickupId: pickupId,
+            type: NotificationType.pickupStatusChanged,
+            title: 'Pickup Cancelled',
+            message:
+                'Your ${pickup.wasteCategory} pickup has been cancelled${reason != null && reason.isNotEmpty ? ': $reason' : '.'}',
+            timestamp: DateTime.now(),
+            isRead: false,
+            category: pickup.wasteCategory,
+          ),
+        );
+      }
+    } catch (_) {
+      // Safe fallback
+    }
   }
 
   // ==========================================

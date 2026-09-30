@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/responsive_utils.dart';
+import '../../utils/validators.dart';
 import '../../widgets/widgets.dart';
 
 /// Screen 7: Forgot Password Screen
@@ -40,7 +41,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     try {
-      await _authService.sendPasswordResetEmail(_emailController.text);
+      await _authService.sendPasswordResetEmail(_emailController.text.trim());
       if (!mounted) return;
       setState(() {
         _isSuccess = true;
@@ -147,15 +148,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             keyboardType: TextInputType.emailAddress,
             prefixIcon: Icons.email_outlined,
             textInputAction: TextInputAction.done,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your email.';
-              }
-              if (!value.contains('@') || !value.contains('.')) {
-                return 'Please enter a valid email address.';
-              }
-              return null;
-            },
+            validator: AppValidators.validateEmail,
           ),
           const SizedBox(height: 28),
 

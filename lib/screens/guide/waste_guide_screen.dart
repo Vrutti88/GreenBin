@@ -233,13 +233,14 @@ class _WasteGuideScreenState extends State<WasteGuideScreen> {
                 // TABLET (600 - 999): 2-Column Responsive Category Grid
                 // DESKTOP (>= 1000): 3-Column Responsive Category Grid
                 final int crossAxisCount = width >= 1000 ? 3 : 2;
+                final double aspectRatio = width >= 1000 ? 1.45 : 1.30;
 
                 return GridView.builder(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.25,
+                    childAspectRatio: aspectRatio,
                   ),
                   itemCount: categories.length,
                   itemBuilder: (context, index) {

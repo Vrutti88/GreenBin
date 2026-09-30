@@ -146,28 +146,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final userId =
-        widget.initialUserId ?? _authService.currentUser?.uid ?? 'user-resident-1';
+        widget.initialUserId ?? _authService.currentUser?.uid ?? '';
 
     final effectiveStream = widget.notificationsStream ??
         (_localNotifications != null
             ? Stream.value(_localNotifications!)
             : (userId.isNotEmpty
                 ? _firestoreService.streamUserNotifications(userId)
-                : Stream.value(NotificationModel.defaultNotifications)));
+                : Stream.value(const <NotificationModel>[])));
 
     final content = StreamBuilder<List<NotificationModel>>(
           stream: effectiveStream,
-          initialData:
-              _localNotifications ?? NotificationModel.defaultNotifications,
+          initialData: _localNotifications,
           builder: (context, snapshot) {
             final rawList = snapshot.data ??
                 _localNotifications ??
-                NotificationModel.defaultNotifications;
-
-            // Keep local list synchronized with stream if present
-            if (_localNotifications == null && snapshot.hasData) {
-              _localNotifications = List.from(rawList);
-            }
+                const <NotificationModel>[];
 
             final currentList = _localNotifications ?? rawList;
             final filteredList = _applyFilter(currentList);
@@ -255,7 +249,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             tooltip: 'Mark all as read',
             onPressed: () {
               final currentList =
-                  _localNotifications ?? NotificationModel.defaultNotifications;
+                  _localNotifications ?? const <NotificationModel>[];
               _markAllAsRead(currentList);
             },
           ),

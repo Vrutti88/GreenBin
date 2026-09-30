@@ -6,6 +6,7 @@ import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/responsive_utils.dart';
+import '../../utils/validators.dart';
 import '../../widgets/widgets.dart';
 
 /// Screen 6: Register Screen
@@ -67,7 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final cred = await _authService.signUpWithEmail(
-        email: _emailController.text,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -228,15 +229,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           hint: 'name@example.com',
                           keyboardType: TextInputType.emailAddress,
                           prefixIcon: Icons.email_outlined,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your email.';
-                            }
-                            if (!value.contains('@') || !value.contains('.')) {
-                              return 'Please enter a valid email address.';
-                            }
-                            return null;
-                          },
+                          validator: AppValidators.validateEmail,
                         ),
                         const SizedBox(height: 16),
 

@@ -9,6 +9,8 @@ import '../../utils/responsive_utils.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/secondary_button.dart';
 import '../../widgets/loading_state.dart';
+import '../../widgets/interactive_animations.dart';
+import '../../widgets/stat_illustration.dart';
 
 /// Screen displaying the resident's profile, environmental impact metrics,
 /// account information, and navigation to settings, edit profile, and support.
@@ -401,13 +403,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAvatarCard(profile, displayName, email),
+          AppFadeSlide(
+            duration: const Duration(milliseconds: 220),
+            offsetDistance: 6,
+            child: _buildAvatarCard(profile, displayName, email),
+          ),
           const SizedBox(height: 16),
-          _buildEnvironmentalImpactCard(profile),
+          AppFadeSlide(
+            duration: const Duration(milliseconds: 260),
+            offsetDistance: 6,
+            child: _buildEnvironmentalImpactCard(profile),
+          ),
           const SizedBox(height: 16),
-          _buildContactDetailsCard(phone, address),
+          AppFadeSlide(
+            duration: const Duration(milliseconds: 300),
+            offsetDistance: 6,
+            child: _buildContactDetailsCard(phone, address),
+          ),
           const SizedBox(height: 20),
-          _buildActionList(),
+          AppFadeSlide(
+            duration: const Duration(milliseconds: 340),
+            offsetDistance: 6,
+            child: _buildActionList(),
+          ),
           const SizedBox(height: 24),
           _buildSignOutButton(),
           const SizedBox(height: 32),
@@ -435,13 +453,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildAvatarCard(profile, displayName, email),
+              AppFadeSlide(
+                duration: const Duration(milliseconds: 220),
+                offsetDistance: 6,
+                child: _buildAvatarCard(profile, displayName, email),
+              ),
               const SizedBox(height: 18),
-              _buildEnvironmentalImpactCard(profile),
+              AppFadeSlide(
+                duration: const Duration(milliseconds: 260),
+                offsetDistance: 6,
+                child: _buildEnvironmentalImpactCard(profile),
+              ),
               const SizedBox(height: 18),
-              _buildContactDetailsCard(phone, address),
+              AppFadeSlide(
+                duration: const Duration(milliseconds: 300),
+                offsetDistance: 6,
+                child: _buildContactDetailsCard(phone, address),
+              ),
               const SizedBox(height: 24),
-              _buildActionList(),
+              AppFadeSlide(
+                duration: const Duration(milliseconds: 340),
+                offsetDistance: 6,
+                child: _buildActionList(),
+              ),
               const SizedBox(height: 24),
               _buildSignOutButton(),
               const SizedBox(height: 36),
@@ -476,9 +510,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 flex: 5,
                 child: Column(
                   children: [
-                    _buildAvatarCard(profile, displayName, email),
+                    AppFadeSlide(
+                      duration: const Duration(milliseconds: 220),
+                      offsetDistance: 6,
+                      child: _buildAvatarCard(profile, displayName, email),
+                    ),
                     const SizedBox(height: 20),
-                    _buildEnvironmentalImpactCard(profile),
+                    AppFadeSlide(
+                      duration: const Duration(milliseconds: 280),
+                      offsetDistance: 6,
+                      child: _buildEnvironmentalImpactCard(profile),
+                    ),
                   ],
                 ),
               ),
@@ -488,9 +530,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 flex: 6,
                 child: Column(
                   children: [
-                    _buildContactDetailsCard(phone, address),
+                    AppFadeSlide(
+                      duration: const Duration(milliseconds: 260),
+                      offsetDistance: 6,
+                      child: _buildContactDetailsCard(phone, address),
+                    ),
                     const SizedBox(height: 20),
-                    _buildActionList(),
+                    AppFadeSlide(
+                      duration: const Duration(milliseconds: 320),
+                      offsetDistance: 6,
+                      child: _buildActionList(),
+                    ),
                     const SizedBox(height: 24),
                     _buildSignOutButton(),
                   ],
@@ -513,9 +563,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: AppColors.borderLight),
+        side: const BorderSide(
+          color: AppColors.borderLight,
+          width: 1.0,
+        ),
       ),
-      child: Padding(
+      color: AppColors.surfaceLight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
@@ -524,9 +589,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Container(
                   width: 60,
                   height: 60,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryContainer,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Text(
@@ -534,7 +606,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? displayName[0].toUpperCase()
                           : 'G',
                       style: AppTextStyles.displaySmall.copyWith(
-                        color: AppColors.primary,
+                        color: Colors.white,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -613,49 +685,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.borderLight),
+        side: const BorderSide(
+          color: AppColors.borderLight,
+          width: 1.0,
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.eco_rounded, color: AppColors.primary, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Your Environmental Footprint',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricTile(
-                    label: 'Recycling Pickups',
-                    value: '${profile?.totalPickups ?? 0}',
-                    icon: Icons.local_shipping_outlined,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMetricTile(
-                    label: 'Waste Diverted',
-                    value:
-                        '${(profile?.kgRecycled ?? 0.0).toStringAsFixed(1)} kg',
-                    icon: Icons.scale_outlined,
-                  ),
-                ),
-              ],
+      color: AppColors.surfaceLight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 3.5,
+                color: AppColors.primary,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryContainer,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.eco_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Your Environmental Footprint',
+                            style: AppTextStyles.titleMedium.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetricTile(
+                            label: 'Recycling Pickups',
+                            value: '${profile?.totalPickups ?? 0}',
+                            icon: Icons.local_shipping_outlined,
+                            illustrationType: StatIllustrationType.pickups,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildMetricTile(
+                            label: 'Waste Diverted',
+                            value:
+                                '${(profile?.kgRecycled ?? 0.0).toStringAsFixed(1)} kg',
+                            icon: Icons.scale_outlined,
+                            illustrationType: StatIllustrationType.divertedKg,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -668,7 +783,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: AppColors.borderLight),
       ),
-      child: Padding(
+      color: AppColors.surfaceLight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -788,32 +915,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String label,
     required String value,
     required IconData icon,
+    StatIllustrationType? illustrationType,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariantLight,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: AppColors.primary),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: AppTextStyles.titleLarge.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
+    return InteractiveBounce(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.16),
+            width: 1,
           ),
-          Text(
-            label,
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textSecondary,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, size: 20, color: AppColors.primary),
+                if (illustrationType != null)
+                  StatIllustration(
+                    type: illustrationType,
+                    size: 24,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: AppTextStyles.titleLarge.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+            Text(
+              label,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
