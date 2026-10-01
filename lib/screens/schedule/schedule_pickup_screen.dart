@@ -4,6 +4,7 @@ import '../../models/pickup_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/preferences_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/responsive_utils.dart';
@@ -109,6 +110,32 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     return candidate.isBefore(today);
   }
 
+  bool _isSlotInPast(DateTime? date, String slot) {
+    if (date == null) return false;
+    final now = DateTime.now();
+    final candidateDay = DateTime(date.year, date.month, date.day);
+    final today = DateTime(now.year, now.month, now.day);
+    if (candidateDay.isBefore(today)) return true;
+    if (candidateDay.isAfter(today)) return false;
+
+    // Today: evaluate start time of the slot window
+    final (start, _) = PreferencesService().parseSlotWindow(date, slot);
+    return now.isAfter(start);
+  }
+
+  bool _areAllSlotsInPast(DateTime? date) {
+    if (date == null) return false;
+    return requiredTimeSlots.every((s) => _isSlotInPast(date, s));
+  }
+
+  DateTime get _earliestSelectableDate {
+    final now = DateTime.now();
+    if (_areAllSlotsInPast(now)) {
+      return now.add(const Duration(days: 1));
+    }
+    return now;
+  }
+
   Future<void> _handleSchedulePickup() async {
     // Validate all form fields
     if (!_formKey.currentState!.validate()) {
@@ -129,10 +156,16 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
       return;
     }
 
-    // Additional strict validation: Time slot required
+    // Additional strict validation: Time slot required and not in past
     if (_selectedTimeSlot.isEmpty ||
         !requiredTimeSlots.contains(_selectedTimeSlot)) {
       setState(() => _errorMessage = 'Please select a valid time slot.');
+      return;
+    }
+
+    if (_isSlotInPast(_selectedDate, _selectedTimeSlot)) {
+      setState(() => _errorMessage =
+          'The selected collection window has already passed. Please choose an upcoming slot or date.');
       return;
     }
 
@@ -195,6 +228,11 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   Future<void> _handleReviewPickup() async {
     if (!_formKey.currentState!.validate()) {
       setState(() => _errorMessage = 'Please complete all required fields correctly.');
+      return;
+    }
+    if (_isSlotInPast(_selectedDate, _selectedTimeSlot)) {
+      setState(() => _errorMessage =
+          'The selected collection window has already passed. Please choose an upcoming slot or date.');
       return;
     }
     if (_streetController.text.trim().isEmpty) {
@@ -786,9 +824,18 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                 DateSelector(
                   label: null,
                   selectedDate: _selectedDate,
-                  firstDate: DateTime.now(),
+                  firstDate: _earliestSelectableDate,
                   onDateSelected: (date) {
-                    setState(() => _selectedDate = date);
+                    setState(() {
+                      _selectedDate = date;
+                      if (_isSlotInPast(date, _selectedTimeSlot)) {
+                        final available = requiredTimeSlots
+                            .where((s) => !_isSlotInPast(date, s))
+                            .toList();
+                        _selectedTimeSlot =
+                            available.isNotEmpty ? available.first : '';
+                      }
+                    });
                     dateState.didChange(date);
                   },
                 ),
@@ -818,9 +865,15 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
             if (!requiredTimeSlots.contains(slot)) {
               return 'Please choose one of the available time windows.';
             }
+            if (_isSlotInPast(_selectedDate, slot)) {
+              return 'This time slot has already passed. Please select an upcoming slot.';
+            }
             return null;
           },
           builder: (slotState) {
+            final allPassed = _selectedDate != null &&
+                _areAllSlotsInPast(_selectedDate!);
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -847,11 +900,42 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                   label: null,
                   availableSlots: requiredTimeSlots,
                   selectedSlot: _selectedTimeSlot,
+                  isSlotDisabled: (slot) =>
+                      _isSlotInPast(_selectedDate, slot),
                   onSlotSelected: (slot) {
                     setState(() => _selectedTimeSlot = slot);
                     slotState.didChange(slot);
                   },
                 ),
+                if (allPassed) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorContainer.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                            size: 18, color: AppColors.error),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'All collection windows for today have ended. Please choose tomorrow or an upcoming date.',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (slotState.hasError) ...[
                   const SizedBox(height: 6),
                   Text(

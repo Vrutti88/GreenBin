@@ -285,6 +285,80 @@ class FirestoreService {
     }
   }
 
+  /// Automatically inspects a single pickup request and advances its state based on current time:
+  /// - If the current time is past the slot end time: advances to Collected and increments stats.
+  /// - If the current time is within or past the slot start time: advances to In Transit ("Crew En Route").
+  Future<void> checkAndAdvanceSinglePickup(String pickupId) async {
+    try {
+      final pickup = await getPickupById(pickupId);
+      if (pickup == null) return;
+      if (pickup.status == PickupStatus.collected ||
+          pickup.status == PickupStatus.cancelled) {
+        return;
+      }
+
+      final (start, end) = PreferencesService.parseSlotWindowStatic(
+        pickup.pickupDate,
+        pickup.timeSlot,
+      );
+      final now = DateTime.now();
+
+      if (now.isAfter(end)) {
+        await markPickupCollected(pickupId);
+      } else if (now.isAfter(start)) {
+        if (pickup.status != PickupStatus.inTransit) {
+          await updatePickupStatus(
+            pickupId: pickupId,
+            status: PickupStatus.inTransit,
+            assignedTeam: 'North Eco Crew #4',
+          );
+        }
+      }
+    } catch (_) {
+      // Safe fallback
+    }
+  }
+
+  /// Automatically inspects all active pickups for a resident and advances any whose time window has arrived.
+  Future<void> autoAdvancePickupLifecycle(String userId) async {
+    final col = _pickupsCol;
+    if (col == null || userId.isEmpty) return;
+
+    try {
+      final snapshot = await col
+          .where('userId', isEqualTo: userId)
+          .where('status', whereIn: [
+            PickupStatus.pending.firestoreValue,
+            PickupStatus.scheduled.firestoreValue,
+            PickupStatus.inTransit.firestoreValue,
+          ])
+          .get();
+
+      final now = DateTime.now();
+      for (final doc in snapshot.docs) {
+        final pickup = PickupModel.fromFirestore(doc);
+        final (start, end) = PreferencesService.parseSlotWindowStatic(
+          pickup.pickupDate,
+          pickup.timeSlot,
+        );
+
+        if (now.isAfter(end)) {
+          await markPickupCollected(pickup.id);
+        } else if (now.isAfter(start)) {
+          if (pickup.status != PickupStatus.inTransit) {
+            await updatePickupStatus(
+              pickupId: pickup.id,
+              status: PickupStatus.inTransit,
+              assignedTeam: 'North Eco Crew #4',
+            );
+          }
+        }
+      }
+    } catch (_) {
+      // Safe fallback
+    }
+  }
+
   /// Cancel a scheduled pickup request
   Future<void> cancelPickup(String pickupId, {String? reason}) async {
     final col = _pickupsCol;

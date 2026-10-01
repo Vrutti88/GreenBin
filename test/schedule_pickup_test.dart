@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:greenbin/models/pickup_model.dart';
 import 'package:greenbin/routes/app_routes.dart';
 import 'package:greenbin/screens/schedule/schedule_pickup_screen.dart';
+import 'package:greenbin/services/preferences_service.dart';
 import 'package:greenbin/theme/app_theme.dart';
 import 'package:greenbin/widgets/date_selector.dart';
 import 'package:greenbin/widgets/time_slot_selector.dart';
@@ -217,5 +218,79 @@ void main() {
         expect(find.text('Schedule Waste Pickup'), findsOneWidget);
       });
     }
+  });
+
+  group('PreferencesService - parseSlotWindow & parseTimeString', () {
+    test('correctly parses morning and afternoon time windows into start and end DateTimes', () {
+      final baseDate = DateTime(2026, 10, 1);
+
+      // Morning slot: 8:00 AM - 10:00 AM
+      final (start1, end1) = PreferencesService.parseSlotWindowStatic(
+        baseDate,
+        '8:00 AM - 10:00 AM',
+      );
+      expect(start1, DateTime(2026, 10, 1, 8, 0));
+      expect(end1, DateTime(2026, 10, 1, 10, 0));
+
+      // Afternoon slot: 12:00 PM - 2:00 PM
+      final (start2, end2) = PreferencesService.parseSlotWindowStatic(
+        baseDate,
+        '12:00 PM - 2:00 PM',
+      );
+      expect(start2, DateTime(2026, 10, 1, 12, 0));
+      expect(end2, DateTime(2026, 10, 1, 14, 0));
+
+      // Late afternoon slot: 4:00 PM - 6:00 PM
+      final (start3, end3) = PreferencesService.parseSlotWindowStatic(
+        baseDate,
+        '4:00 PM - 6:00 PM',
+      );
+      expect(start3, DateTime(2026, 10, 1, 16, 0));
+      expect(end3, DateTime(2026, 10, 1, 18, 0));
+    });
+  });
+
+  group('TimeSlotSelector - Disabled / Passed Slot Interaction', () {
+    testWidgets('renders Passed badge and prevents selecting disabled past slots',
+        (tester) async {
+      String selectedSlot = '10:00 AM - 12:00 PM';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: TimeSlotSelector(
+              availableSlots: const [
+                '8:00 AM - 10:00 AM',
+                '10:00 AM - 12:00 PM',
+                '12:00 PM - 2:00 PM',
+              ],
+              selectedSlot: selectedSlot,
+              isSlotDisabled: (slot) => slot == '8:00 AM - 10:00 AM',
+              onSlotSelected: (slot) {
+                selectedSlot = slot;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Passed chip is shown for the disabled 8:00 AM slot
+      expect(find.text('Passed'), findsOneWidget);
+
+      // Attempt to tap the disabled 8:00 AM slot
+      await tester.tap(find.text('8:00 AM - 10:00 AM'));
+      await tester.pumpAndSettle();
+
+      // Selection must remain unchanged
+      expect(selectedSlot, '10:00 AM - 12:00 PM');
+
+      // Tapping enabled 12:00 PM slot must work
+      await tester.tap(find.text('12:00 PM - 2:00 PM'));
+      await tester.pumpAndSettle();
+
+      expect(selectedSlot, '12:00 PM - 2:00 PM');
+    });
   });
 }

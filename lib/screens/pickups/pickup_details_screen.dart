@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/pickup_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/preferences_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../utils/responsive_utils.dart';
@@ -36,10 +37,100 @@ class PickupDetailsScreen extends StatefulWidget {
 
 class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
   final _firestoreService = FirestoreService();
+  final _prefsService = PreferencesService();
   bool _isCancelling = false;
+  bool _isSimulating = false;
 
   PickupModel? _resolvedInitialPickup;
   String _resolvedPickupId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _resolvedInitialPickup = widget.initialPickup;
+    _resolvedPickupId = widget.initialPickup?.id ?? widget.pickupId ?? '';
+    if (_resolvedPickupId.isNotEmpty) {
+      _firestoreService.checkAndAdvanceSinglePickup(_resolvedPickupId);
+    }
+  }
+
+  Future<void> _simulateCrewEnRoute(PickupModel pickup) async {
+    if (_isSimulating) return;
+    setState(() => _isSimulating = true);
+
+    try {
+      await _firestoreService.updatePickupStatus(
+        pickupId: pickup.id,
+        status: PickupStatus.inTransit,
+        assignedTeam: 'North Eco Crew #4',
+      );
+      await _prefsService.triggerFeedbackIfEnabled();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Eco Crew #4 dispatched and en route to your address!'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating status: $e'),
+            backgroundColor: AppColors.statusCancelled,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSimulating = false);
+      }
+    }
+  }
+
+  Future<void> _simulateCompleteCollection(PickupModel pickup) async {
+    if (_isSimulating) return;
+    setState(() => _isSimulating = true);
+
+    try {
+      await _firestoreService.markPickupCollected(pickup.id, weightKg: 4.5);
+      await _prefsService.triggerFeedbackIfEnabled();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Collection completed! 4.5 kg diverted from landfill.'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error completing pickup: $e'),
+            backgroundColor: AppColors.statusCancelled,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSimulating = false);
+      }
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -978,9 +1069,170 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
               isLast: true,
             ),
           ],
+          if (!isCancelled) ...[
+            _buildSimulationControls(pickup),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildSimulationControls(PickupModel pickup) {
+    if (pickup.status == PickupStatus.scheduled) {
+      return Container(
+        margin: const EdgeInsets.only(top: 18),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariantLight,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.flash_on_rounded,
+                    size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Live Collection Testing & Simulator',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Test the crew dispatch and collection stages in real time without waiting for the scheduled window.',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed:
+                      _isSimulating ? null : () => _simulateCrewEnRoute(pickup),
+                  icon: const Icon(Icons.local_shipping_rounded, size: 16),
+                  label: const Text('Dispatch Crew'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _isSimulating
+                      ? null
+                      : () => _simulateCompleteCollection(pickup),
+                  icon: const Icon(Icons.verified_rounded, size: 16),
+                  label: const Text('Complete Collection'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    } else if (pickup.status == PickupStatus.inTransit) {
+      return Container(
+        margin: const EdgeInsets.only(top: 18),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.primaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.local_shipping_rounded,
+                    size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Collection Crew is En Route',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Eco vehicle is currently travelling to your location. Confirm completion once collected.',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _isSimulating
+                  ? null
+                  : () => _simulateCompleteCollection(pickup),
+              icon: const Icon(Icons.verified_rounded, size: 16),
+              label: const Text('Mark Materials Collected'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (pickup.status.isCollected) {
+      return Container(
+        margin: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.statusConfirmedBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.statusConfirmed.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.verified_rounded,
+                color: AppColors.statusConfirmed, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Collection completed · Materials weighed & diverted from landfill.',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildTimelineItem({

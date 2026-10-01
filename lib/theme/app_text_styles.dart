@@ -121,6 +121,9 @@ class AppTextStyles {
     height: 1.3,
   );
 
+  /// Alias for backward compatibility
+  static const TextStyle caption = labelSmall;
+
   /// Material 3 TextTheme object integrating with ThemeData
   static TextTheme get textTheme {
     return const TextTheme(

@@ -269,4 +269,46 @@ class PreferencesService {
       // Safe fallback
     }
   }
+
+  /// Parses a time string like "8:00 AM" or "2:30 PM" on a specific [date].
+  static DateTime parseTimeString(DateTime date, String timeStr) {
+    final trimmed = timeStr.trim().toUpperCase();
+    final isPM = trimmed.endsWith('PM');
+    final isAM = trimmed.endsWith('AM');
+    final rawTime = trimmed.replaceAll('AM', '').replaceAll('PM', '').trim();
+    final parts = rawTime.split(':');
+    var hour = int.tryParse(parts[0]) ?? 0;
+    final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+
+    if (isPM && hour < 12) {
+      hour += 12;
+    } else if (isAM && hour == 12) {
+      hour = 0;
+    }
+
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  /// Parses a time slot range like "8:00 AM - 10:00 AM" for a specific [pickupDate]
+  /// and returns a tuple (startDateTime, endDateTime).
+  (DateTime start, DateTime end) parseSlotWindow(
+      DateTime pickupDate, String timeSlot) {
+    return parseSlotWindowStatic(pickupDate, timeSlot);
+  }
+
+  /// Static helper to parse a time slot window
+  static (DateTime start, DateTime end) parseSlotWindowStatic(
+      DateTime pickupDate, String timeSlot) {
+    final parts = timeSlot.split('-');
+    if (parts.length >= 2) {
+      final start = parseTimeString(pickupDate, parts[0]);
+      final end = parseTimeString(pickupDate, parts[1]);
+      return (start, end);
+    }
+    // Fallback if no delimiter
+    final fallbackStart =
+        DateTime(pickupDate.year, pickupDate.month, pickupDate.day, 8, 0);
+    final fallbackEnd = fallbackStart.add(const Duration(hours: 2));
+    return (fallbackStart, fallbackEnd);
+  }
 }

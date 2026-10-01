@@ -9,6 +9,7 @@ class TimeSlotSelector extends StatelessWidget {
   final ValueChanged<String> onSlotSelected;
   final List<String> availableSlots;
   final String? label;
+  final bool Function(String slot)? isSlotDisabled;
 
   const TimeSlotSelector({
     super.key,
@@ -22,6 +23,7 @@ class TimeSlotSelector extends StatelessWidget {
       '4:00 PM - 6:00 PM',
     ],
     this.label,
+    this.isSlotDisabled,
   });
 
   @override
@@ -45,46 +47,88 @@ class TimeSlotSelector extends StatelessWidget {
           runSpacing: 10,
           children: availableSlots.map((slot) {
             final isSelected = selectedSlot == slot;
-            return InkWell(
-              onTap: () => onSlotSelected(slot),
-              borderRadius: BorderRadius.circular(12),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                constraints: const BoxConstraints(minHeight: 44),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primaryContainer
-                      : AppColors.surfaceVariantLight,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.borderLight,
-                    width: isSelected ? 1.5 : 1,
+            final isDisabled = isSlotDisabled != null && isSlotDisabled!(slot);
+
+            return Tooltip(
+              message: isDisabled ? '$slot has already passed' : 'Select $slot',
+              child: InkWell(
+                onTap: isDisabled ? null : () => onSlotSelected(slot),
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  constraints: const BoxConstraints(minHeight: 44),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDisabled
+                        ? AppColors.surfaceVariantLight.withValues(alpha: 0.35)
+                        : (isSelected
+                            ? AppColors.primaryContainer
+                            : AppColors.surfaceVariantLight),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDisabled
+                          ? AppColors.borderLight.withValues(alpha: 0.4)
+                          : (isSelected
+                              ? AppColors.primary
+                              : AppColors.borderLight),
+                      width: isSelected && !isDisabled ? 1.5 : 1,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isSelected
-                          ? Icons.check_circle_rounded
-                          : Icons.access_time_rounded,
-                      size: 16,
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      slot,
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isDisabled
+                            ? Icons.history_rounded
+                            : (isSelected
+                                ? Icons.check_circle_rounded
+                                : Icons.access_time_rounded),
+                        size: 16,
+                        color: isDisabled
+                            ? AppColors.textMuted
+                            : (isSelected
+                                ? AppColors.primary
+                                : AppColors.textSecondary),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        slot,
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: isDisabled
+                              ? AppColors.textMuted
+                              : (isSelected
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary),
+                          fontWeight: isSelected && !isDisabled
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          decoration: isDisabled
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                      if (isDisabled) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.borderLight.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Passed',
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             );

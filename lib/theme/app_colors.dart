@@ -58,6 +58,7 @@ class AppColors {
   static const Color statusCancelled = Color(0xFFDC2626);
   static const Color statusCancelledBg = Color(0xFFFEF2F2);
   static const Color error = Color(0xFFDC2626);
+  static const Color errorContainer = Color(0xFFFEE2E2);
 
   // Waste Category Accent Colors
   static const Color plasticCategory = Color(0xFF2563EB); // Royal Blue
