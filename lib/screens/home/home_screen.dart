@@ -935,16 +935,27 @@ class _HomeScreenState extends State<HomeScreen> {
           aspectRatio = 0.85;
         }
 
-        final zeroWasteLevel = (totalPickups ~/ 3) + 1;
-        final zeroWasteRank = totalPickups >= 10
-            ? 'Eco Master'
-            : totalPickups >= 5
-                ? 'Eco Champion'
-                : 'Eco Explorer';
+        final int zeroWasteLevel;
+        final String zeroWasteRank;
+        final String rankProgressLabel;
+
+        if (totalPickups > 10) {
+          zeroWasteLevel = 3;
+          zeroWasteRank = 'Eco Master 🏆';
+          rankProgressLabel = 'Top Rank';
+        } else if (totalPickups >= 6) {
+          zeroWasteLevel = 2;
+          zeroWasteRank = 'Eco Champion 🌿';
+          final needed = 11 - totalPickups;
+          rankProgressLabel = '$needed to Eco Master';
+        } else {
+          zeroWasteLevel = 1;
+          zeroWasteRank = 'Eco Explorer 🌱';
+          final needed = 6 - totalPickups;
+          rankProgressLabel = '$needed to Eco Champion';
+        }
 
         final nextPickupMilestone = ((totalPickups ~/ 5) + 1) * 5;
-        final pickupsInLevel = totalPickups % 3;
-        final pickupsNeeded = 3 - pickupsInLevel;
 
         return GridView.count(
           crossAxisCount: columns,
@@ -986,7 +997,7 @@ class _HomeScreenState extends State<HomeScreen> {
               value: 'Level $zeroWasteLevel',
               subtitle: zeroWasteRank,
               badgeText: zeroWasteRank,
-              progressLabel: '$pickupsNeeded to Lvl ${zeroWasteLevel + 1}',
+              progressLabel: rankProgressLabel,
               showSubtitle: showSubtitle,
               color: AppColors.tertiary,
               illustrationType: StatIllustrationType.zeroWasteRank,

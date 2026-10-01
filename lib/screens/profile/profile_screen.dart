@@ -732,15 +732,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     final totalPickups = actualTotalPickups ?? profile?.totalPickups ?? 0;
     final completedPickups = actualCompletedPickups ?? totalPickups;
-    final zeroWasteLevel = (totalPickups ~/ 3) + 1;
-    final zeroWasteRank = totalPickups >= 10
-        ? 'Eco Master'
-        : totalPickups >= 5
-            ? 'Eco Champion'
-            : 'Eco Explorer';
-    final pickupsInLevel = totalPickups % 3;
-    final pickupsNeeded = 3 - pickupsInLevel;
-    final levelProgress = (pickupsInLevel / 3.0).clamp(0.0, 1.0);
+
+    final int zeroWasteLevel;
+    final String zeroWasteRank;
+    final String progressBadge;
+    final double levelProgress;
+    final String progressSubtext;
+
+    if (totalPickups > 10) {
+      zeroWasteLevel = 3;
+      zeroWasteRank = 'Eco Master 🏆';
+      progressBadge = '10+ Pickups';
+      levelProgress = 1.0;
+      progressSubtext = 'Highest Zero-Waste Rank Achieved! 🏆';
+    } else if (totalPickups >= 6) {
+      zeroWasteLevel = 2;
+      zeroWasteRank = 'Eco Champion 🌿';
+      final inTier = totalPickups - 5;
+      progressBadge = '$inTier / 5 Pickups';
+      levelProgress = (inTier / 5.0).clamp(0.0, 1.0);
+      final needed = 11 - totalPickups;
+      progressSubtext =
+          '$needed more pickup${needed == 1 ? '' : 's'} to unlock Eco Master 🏆';
+    } else {
+      zeroWasteLevel = 1;
+      zeroWasteRank = 'Eco Explorer 🌱';
+      progressBadge = '$totalPickups / 5 Pickups';
+      levelProgress = (totalPickups / 5.0).clamp(0.0, 1.0);
+      final needed = 6 - totalPickups;
+      progressSubtext =
+          '$needed more pickup${needed == 1 ? '' : 's'} to unlock Eco Champion 🌿';
+    }
 
     final subtitleText = completedPickups == totalPickups && totalPickups > 0
         ? 'All Completed'
@@ -867,9 +889,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Flexible(
+                              Expanded(
                                 child: Row(
-                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(
                                       Icons.military_tech_rounded,
@@ -877,14 +898,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       color: AppColors.tertiary,
                                     ),
                                     const SizedBox(width: 6),
-                                    Flexible(
+                                    Expanded(
                                       child: Text(
-                                        'Level $zeroWasteLevel Progress',
+                                        'Level $zeroWasteLevel · $zeroWasteRank',
                                         style:
                                             AppTextStyles.labelMedium.copyWith(
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.textPrimary,
                                         ),
+                                        maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -903,7 +925,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  '$pickupsInLevel / 3 Pickups',
+                                  progressBadge,
                                   style: AppTextStyles.labelSmall.copyWith(
                                     color: AppColors.tertiary,
                                     fontWeight: FontWeight.w700,
@@ -930,7 +952,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '$pickupsNeeded more pickup${pickupsNeeded == 1 ? '' : 's'} to unlock Level ${zeroWasteLevel + 1}',
+                                  progressSubtext,
                                   style: AppTextStyles.labelSmall.copyWith(
                                     color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w500,
@@ -947,6 +969,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '0–5: Eco Explorer 🌱 · 6–10: Eco Champion 🌿 · 10+: Eco Master 🏆',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.textSecondary.withValues(alpha: 0.75),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
