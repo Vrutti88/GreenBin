@@ -56,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final uid = _authService.currentUser?.uid;
     if (uid != null && uid.isNotEmpty) {
       _firestoreService.checkAndGenerateUpcomingReminders(uid);
+      _firestoreService.checkAndGenerateMilestones(uid);
     }
   }
 

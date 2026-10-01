@@ -58,6 +58,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final uid = _authService.currentUser?.uid;
     if (uid != null && uid.isNotEmpty) {
       _firestoreService.checkAndGenerateUpcomingReminders(uid);
+      _firestoreService.checkAndGenerateMilestones(uid);
     }
   }
 

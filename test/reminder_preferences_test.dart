@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:greenbin/models/notification_model.dart';
 import 'package:greenbin/services/preferences_service.dart';
 import 'package:greenbin/screens/profile/settings_screen.dart';
 
@@ -39,6 +40,16 @@ void main() {
 
       await prefsService.setSoundAndVibrate(false);
       expect(await prefsService.getSoundAndVibrate(), isFalse);
+    });
+
+    test('triggerFeedbackIfEnabled executes safely without exception',
+        () async {
+      final prefsService = PreferencesService();
+      await prefsService.setSoundAndVibrate(true);
+      expect(() => prefsService.triggerFeedbackIfEnabled(), returnsNormally);
+
+      await prefsService.setSoundAndVibrate(false);
+      expect(() => prefsService.triggerFeedbackIfEnabled(), returnsNormally);
     });
 
     test('getReminderDuration parses all valid window durations', () {
@@ -86,17 +97,30 @@ void main() {
       );
       expect(reminder3, equals(DateTime(2026, 10, 13, 11, 30)));
     });
+
+    test('NotificationType enum supports milestone alerts', () {
+      expect(NotificationType.milestone.displayName, equals('Milestone Alert'));
+      expect(NotificationType.milestone.icon, isNotNull);
+      expect(NotificationType.milestone.color, isNotNull);
+      expect(NotificationType.fromString('milestone'),
+          equals(NotificationType.milestone));
+      expect(NotificationType.fromString('milestone_alert'),
+          equals(NotificationType.milestone));
+    });
   });
 
-  group('Settings Screen - Reminder Timing Widget Tests', () {
+  group('Settings Screen - All 5 Preferences Controls Interactive Tests', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({
-        PreferencesService.keyReminderWindow: '1 day before',
         PreferencesService.keyPickupReminders: true,
+        PreferencesService.keyStatusUpdates: true,
+        PreferencesService.keyMilestoneAlerts: true,
+        PreferencesService.keyReminderWindow: '1 day before',
+        PreferencesService.keySoundAndVibrate: true,
       });
     });
 
-    testWidgets('Renders Reminder Timing dropdown and updates setting',
+    testWidgets('1. Reminder Timing dropdown opens, updates value and persists',
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -105,7 +129,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify the reminder timing tile exists
       expect(find.text('Reminder Timing'), findsOneWidget);
       expect(find.text('1 day before'), findsNWidgets(2));
 
@@ -119,7 +142,8 @@ void main() {
 
       // Select '2 hours before'
       await tester.tap(find.text('2 hours before').last);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
 
       // Verify SnackBar feedback appears
       expect(find.text('Reminder timing set to 2 hours before'), findsOneWidget);
@@ -130,7 +154,7 @@ void main() {
           equals('2 hours before'));
     });
 
-    testWidgets('Toggles Pickup Reminders switch and shows confirmation',
+    testWidgets('2. Pickup Reminders toggle updates state and shows SnackBar',
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -139,26 +163,132 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final switchFinder = find.byType(Switch).first;
-      expect(switchFinder, findsOneWidget);
+      // Find switch by tile title
+      final pickupTile = find.ancestor(
+        of: find.text('Pickup Reminders'),
+        matching: find.byType(ListTile),
+      );
+      final switchFinder = find.descendant(
+        of: pickupTile,
+        matching: find.byType(Switch),
+      );
 
-      // Tap to toggle off
+      // Toggle off
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
       expect(find.text('Pickup reminders disabled'), findsOneWidget);
-
       final prefs = await SharedPreferences.getInstance();
-      expect(
-          prefs.getBool(PreferencesService.keyPickupReminders), isFalse);
+      expect(prefs.getBool(PreferencesService.keyPickupReminders), isFalse);
 
-      // Tap to toggle on
+      // Toggle back on
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
       expect(find.text('Pickup reminders enabled'), findsOneWidget);
-      expect(
-          prefs.getBool(PreferencesService.keyPickupReminders), isTrue);
+      expect(prefs.getBool(PreferencesService.keyPickupReminders), isTrue);
+    });
+
+    testWidgets('3. Status Updates toggle updates state and shows SnackBar',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final tile = find.ancestor(
+        of: find.text('Status Updates'),
+        matching: find.byType(ListTile),
+      );
+      final switchFinder = find.descendant(
+        of: tile,
+        matching: find.byType(Switch),
+      );
+
+      // Toggle off
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Status updates disabled'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(PreferencesService.keyStatusUpdates), isFalse);
+
+      // Toggle on
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Status updates enabled'), findsOneWidget);
+      expect(prefs.getBool(PreferencesService.keyStatusUpdates), isTrue);
+    });
+
+    testWidgets('4. Milestone Alerts toggle updates state and shows SnackBar',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final tile = find.ancestor(
+        of: find.text('Milestone Alerts'),
+        matching: find.byType(ListTile),
+      );
+      final switchFinder = find.descendant(
+        of: tile,
+        matching: find.byType(Switch),
+      );
+
+      // Toggle off
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Milestone alerts disabled'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(PreferencesService.keyMilestoneAlerts), isFalse);
+
+      // Toggle on
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Milestone alerts enabled'), findsOneWidget);
+      expect(prefs.getBool(PreferencesService.keyMilestoneAlerts), isTrue);
+    });
+
+    testWidgets('5. Sound & Vibration toggle updates state and shows SnackBar',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final tile = find.ancestor(
+        of: find.text('Sound & Vibration'),
+        matching: find.byType(ListTile),
+      );
+      final switchFinder = find.descendant(
+        of: tile,
+        matching: find.byType(Switch),
+      );
+
+      // Toggle off
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sound & vibration disabled'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(PreferencesService.keySoundAndVibrate), isFalse);
+
+      // Toggle on
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sound & vibration enabled'), findsOneWidget);
+      expect(prefs.getBool(PreferencesService.keySoundAndVibrate), isTrue);
     });
   });
 }

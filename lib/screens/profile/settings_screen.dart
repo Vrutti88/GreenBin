@@ -67,6 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _reminderWindow = val);
     final userId = _authService.currentUser?.uid;
     await _prefsService.setReminderWindow(val, userId: userId);
+    await _prefsService.triggerFeedbackIfEnabled();
 
     if (userId != null && userId.isNotEmpty && _pickupReminders) {
       await _firestoreService.checkAndGenerateUpcomingReminders(userId);
@@ -90,8 +91,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final userId = _authService.currentUser?.uid;
     await _prefsService.setPickupReminders(val, userId: userId);
 
-    if (userId != null && userId.isNotEmpty && val) {
-      await _firestoreService.checkAndGenerateUpcomingReminders(userId);
+    if (val) {
+      await _prefsService.triggerFeedbackIfEnabled();
+      if (userId != null && userId.isNotEmpty) {
+        await _firestoreService.checkAndGenerateUpcomingReminders(userId);
+      }
     }
 
     if (mounted) {
@@ -112,18 +116,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _statusUpdates = val);
     final userId = _authService.currentUser?.uid;
     await _prefsService.setStatusUpdates(val, userId: userId);
+    if (val) {
+      await _prefsService.triggerFeedbackIfEnabled();
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              val ? 'Status updates enabled' : 'Status updates disabled'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _onMilestoneAlertsChanged(bool val) async {
     setState(() => _milestoneAlerts = val);
     final userId = _authService.currentUser?.uid;
     await _prefsService.setMilestoneAlerts(val, userId: userId);
+
+    if (val) {
+      await _prefsService.triggerFeedbackIfEnabled();
+      if (userId != null && userId.isNotEmpty) {
+        await _firestoreService.checkAndGenerateMilestones(userId);
+      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              val ? 'Milestone alerts enabled' : 'Milestone alerts disabled'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _onSoundAndVibrateChanged(bool val) async {
     setState(() => _soundAndVibrate = val);
     final userId = _authService.currentUser?.uid;
     await _prefsService.setSoundAndVibrate(val, userId: userId);
+
+    if (val) {
+      await _prefsService.triggerFeedbackIfEnabled();
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              val ? 'Sound & vibration enabled' : 'Sound & vibration disabled'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _showPrivacyPolicy() {

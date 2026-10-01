@@ -216,46 +216,73 @@ class FirestoreService {
 
     await col.doc(pickupId).update(updates);
 
-    // Create real-time notification for the status change
+    // Create real-time notification for the status change if user enabled status updates
     try {
+      final prefsService = PreferencesService();
+      final statusUpdatesEnabled = await prefsService.getStatusUpdates();
+
       final pickup = await getPickupById(pickupId);
       if (pickup != null && pickup.userId.isNotEmpty) {
-        final notifTitle = status == PickupStatus.collected
-            ? 'Materials Diverted & Collected'
-            : status == PickupStatus.inTransit
-                ? 'Collection Crew En Route'
-                : 'Pickup Status Updated';
-        final notifMessage = status == PickupStatus.collected
-            ? 'Your ${pickup.wasteCategory} recycling batch was successfully collected and transported to the recovery center.'
-            : status == PickupStatus.inTransit
-                ? '${assignedTeam ?? 'Collection Crew'} is heading towards your location for the scheduled ${pickup.wasteCategory} collection.'
-                : 'Your pickup status is now ${status.displayName}.';
+        if (statusUpdatesEnabled) {
+          final notifTitle = status == PickupStatus.collected
+              ? 'Materials Diverted & Collected'
+              : status == PickupStatus.inTransit
+                  ? 'Collection Crew En Route'
+                  : 'Pickup Status Updated';
+          final notifMessage = status == PickupStatus.collected
+              ? 'Your ${pickup.wasteCategory} recycling batch was successfully collected and transported to the recovery center.'
+              : status == PickupStatus.inTransit
+                  ? '${assignedTeam ?? 'Collection Crew'} is heading towards your location for the scheduled ${pickup.wasteCategory} collection.'
+                  : 'Your pickup status is now ${status.displayName}.';
 
-        await createNotification(
-          NotificationModel(
-            id: '',
-            userId: pickup.userId,
-            pickupId: pickupId,
-            type: NotificationType.pickupStatusChanged,
-            title: notifTitle,
-            message: notifMessage,
-            timestamp: DateTime.now(),
-            isRead: false,
-            category: pickup.wasteCategory,
-          ),
-        );
+          await createNotification(
+            NotificationModel(
+              id: '',
+              userId: pickup.userId,
+              pickupId: pickupId,
+              type: NotificationType.pickupStatusChanged,
+              title: notifTitle,
+              message: notifMessage,
+              timestamp: DateTime.now(),
+              isRead: false,
+              category: pickup.wasteCategory,
+            ),
+          );
+          await prefsService.triggerFeedbackIfEnabled();
+        }
+
+        // If completed/collected, evaluate milestone achievements
+        if (status == PickupStatus.collected) {
+          await checkAndGenerateMilestones(pickup.userId);
+        }
       }
     } catch (_) {
       // Safe fallback
     }
   }
 
-  /// Mark a pickup as "Collected"
-  Future<void> markPickupCollected(String pickupId) async {
+  /// Mark a pickup as "Collected" and increment recycling statistics
+  Future<void> markPickupCollected(String pickupId, {double weightKg = 4.5}) async {
     await updatePickupStatus(
       pickupId: pickupId,
       status: PickupStatus.collected,
     );
+
+    try {
+      final pickup = await getPickupById(pickupId);
+      if (pickup != null && pickup.userId.isNotEmpty && _usersCol != null) {
+        await _usersCol!.doc(pickup.userId).set({
+          'totalPickups': FieldValue.increment(1),
+          'kgRecycled': FieldValue.increment(weightKg),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        // Evaluate milestone awards
+        await checkAndGenerateMilestones(pickup.userId);
+      }
+    } catch (_) {
+      // Safe fallback
+    }
   }
 
   /// Cancel a scheduled pickup request
@@ -268,24 +295,29 @@ class FirestoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // Create real-time notification for the cancellation
+    // Create real-time notification for the cancellation if user enabled status updates
     try {
-      final pickup = await getPickupById(pickupId);
-      if (pickup != null && pickup.userId.isNotEmpty) {
-        await createNotification(
-          NotificationModel(
-            id: '',
-            userId: pickup.userId,
-            pickupId: pickupId,
-            type: NotificationType.pickupStatusChanged,
-            title: 'Pickup Cancelled',
-            message:
-                'Your ${pickup.wasteCategory} pickup has been cancelled${reason != null && reason.isNotEmpty ? ': $reason' : '.'}',
-            timestamp: DateTime.now(),
-            isRead: false,
-            category: pickup.wasteCategory,
-          ),
-        );
+      final prefsService = PreferencesService();
+      final statusUpdatesEnabled = await prefsService.getStatusUpdates();
+      if (statusUpdatesEnabled) {
+        final pickup = await getPickupById(pickupId);
+        if (pickup != null && pickup.userId.isNotEmpty) {
+          await createNotification(
+            NotificationModel(
+              id: '',
+              userId: pickup.userId,
+              pickupId: pickupId,
+              type: NotificationType.pickupStatusChanged,
+              title: 'Pickup Cancelled',
+              message:
+                  'Your ${pickup.wasteCategory} pickup has been cancelled${reason != null && reason.isNotEmpty ? ': $reason' : '.'}',
+              timestamp: DateTime.now(),
+              isRead: false,
+              category: pickup.wasteCategory,
+            ),
+          );
+          await prefsService.triggerFeedbackIfEnabled();
+        }
       }
     } catch (_) {
       // Safe fallback
@@ -472,7 +504,109 @@ class FirestoreService {
         }
       }
 
+      if (remindersCreated > 0) {
+        await prefsService.triggerFeedbackIfEnabled();
+      }
+
       return remindersCreated;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ==========================================
+  // REAL-TIME MILESTONE CELEBRATION ENGINE
+  // ==========================================
+
+  /// Check user's total recycling accomplishments and generate milestone notifications
+  /// if milestone alerts are enabled and new milestones are reached.
+  Future<int> checkAndGenerateMilestones(String userId) async {
+    final col = _pickupsCol;
+    final notifsCol = _notificationsCol;
+    if (col == null || notifsCol == null || userId.isEmpty) return 0;
+
+    try {
+      final prefsService = PreferencesService();
+      final milestoneAlertsEnabled = await prefsService.getMilestoneAlerts();
+      if (!milestoneAlertsEnabled) return 0;
+
+      // Count collected pickups
+      final collectedSnap = await col
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: 'Collected')
+          .get();
+      final collectedCount = collectedSnap.docs.length;
+
+      // Also check user profile kgRecycled if present
+      final userDoc = await _usersCol?.doc(userId).get();
+      final userKg =
+          (userDoc?.data()?['kgRecycled'] as num?)?.toDouble() ?? 0.0;
+      final effectiveKg = userKg > 0 ? userKg : (collectedCount * 4.5);
+
+      // Existing notifications for this user to prevent duplicate milestone creation
+      final existingNotifs =
+          await notifsCol.where('userId', isEqualTo: userId).get();
+      final existingTitles = existingNotifs.docs
+          .map((d) => d.data()['title'] as String? ?? '')
+          .toSet();
+
+      int milestonesCreated = 0;
+
+      final potentialMilestones = <Map<String, String>>[];
+
+      if (collectedCount >= 1) {
+        potentialMilestones.add({
+          'title': 'Milestone: First Pickup Completed!',
+          'message':
+              'Congratulations on completing your first GreenBin recyclable pickup! You are taking real action towards a zero-waste neighborhood.',
+        });
+      }
+      if (collectedCount >= 5) {
+        potentialMilestones.add({
+          'title': 'Milestone: 5 Collections Diverted!',
+          'message':
+              'High five! You have completed 5 doorstep collections and earned the Bronze GreenBin badge.',
+        });
+      }
+      if (effectiveKg >= 10.0) {
+        potentialMilestones.add({
+          'title': 'Milestone: 10 kg Diverted from Landfills!',
+          'message':
+              'Incredible impact! Your sorting efforts have diverted over 10 kg of materials into circular recovery.',
+        });
+      }
+      if (effectiveKg >= 25.0) {
+        potentialMilestones.add({
+          'title': 'Milestone: 25 kg Eco Achiever!',
+          'message':
+              'Silver Eco Achiever: You have diverted 25 kg of recyclable resources into the circular economy!',
+        });
+      }
+
+      for (final m in potentialMilestones) {
+        final title = m['title']!;
+        if (!existingTitles.contains(title)) {
+          await createNotification(
+            NotificationModel(
+              id: '',
+              userId: userId,
+              type: NotificationType.milestone,
+              title: title,
+              message: m['message']!,
+              timestamp: DateTime.now(),
+              isRead: false,
+              category: 'Eco Milestone',
+            ),
+          );
+          milestonesCreated++;
+        }
+      }
+
+      if (milestonesCreated > 0) {
+        await prefsService.triggerFeedbackIfEnabled();
+      }
+
+      return milestonesCreated;
     } catch (_) {
       return 0;
     }

@@ -6,7 +6,8 @@ import '../theme/app_colors.dart';
 enum NotificationType {
   pickupScheduled,
   pickupReminder,
-  pickupStatusChanged;
+  pickupStatusChanged,
+  milestone;
 
   String get displayName {
     switch (this) {
@@ -16,6 +17,8 @@ enum NotificationType {
         return 'Pickup Reminder';
       case NotificationType.pickupStatusChanged:
         return 'Status Changed';
+      case NotificationType.milestone:
+        return 'Milestone Alert';
     }
   }
 
@@ -27,6 +30,8 @@ enum NotificationType {
         return Icons.alarm_rounded;
       case NotificationType.pickupStatusChanged:
         return Icons.sync_rounded;
+      case NotificationType.milestone:
+        return Icons.military_tech_rounded;
     }
   }
 
@@ -38,6 +43,8 @@ enum NotificationType {
         return AppColors.tertiary;
       case NotificationType.pickupStatusChanged:
         return AppColors.primary;
+      case NotificationType.milestone:
+        return AppColors.secondary;
     }
   }
 
@@ -49,6 +56,8 @@ enum NotificationType {
         return AppColors.tertiaryContainer;
       case NotificationType.pickupStatusChanged:
         return AppColors.primaryContainer;
+      case NotificationType.milestone:
+        return AppColors.secondaryContainer;
     }
   }
 
@@ -67,6 +76,10 @@ enum NotificationType {
       case 'status_changed':
       case 'status':
         return NotificationType.pickupStatusChanged;
+      case 'milestone':
+      case 'milestonealert':
+      case 'milestone_alert':
+        return NotificationType.milestone;
       default:
         return NotificationType.pickupScheduled;
     }

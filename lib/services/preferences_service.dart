@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service managing resident settings and reminder preferences with local
@@ -107,6 +108,23 @@ class PreferencesService {
     await prefs.setString(keyReminderWindow, window);
     if (userId != null && userId.isNotEmpty) {
       await _syncSingleToFirestore(userId, 'reminderWindow', window);
+    }
+  }
+
+  // =========================================================================
+  // SOUND & HAPTIC FEEDBACK TRIGGER
+  // =========================================================================
+
+  /// Triggers haptic feedback and system click sound if user enabled Sound & Vibration
+  Future<void> triggerFeedbackIfEnabled() async {
+    final enabled = await getSoundAndVibrate();
+    if (enabled) {
+      try {
+        HapticFeedback.mediumImpact().ignore();
+        SystemSound.play(SystemSoundType.click).ignore();
+      } catch (_) {
+        // Safe fallback in test environments or unsupported devices
+      }
     }
   }
 
