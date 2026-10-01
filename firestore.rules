@@ -154,6 +154,14 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // SUPPORT TICKETS COLLECTION: support_tickets/{ticketId}
+    // =========================================================================
+    match /support_tickets/{ticketId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isCollector() || isAdmin());
+      allow create: if isAuthenticated();
+    }
+
+    // =========================================================================
     // DEFAULT CATCH-ALL: Deny all unhandled operations by default
     // =========================================================================
     match /{document=**} {

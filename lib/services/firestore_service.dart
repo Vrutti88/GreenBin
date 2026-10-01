@@ -32,6 +32,9 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>>? get _notificationsCol =>
       _firestore?.collection('notifications');
 
+  CollectionReference<Map<String, dynamic>>? get _supportTicketsCol =>
+      _firestore?.collection('support_tickets');
+
   // ==========================================
   // USER PROFILE OPERATIONS (users/{userId})
   // ==========================================
@@ -341,5 +344,54 @@ class FirestoreService {
     final notifWithId = notification.copyWith(id: docRef.id);
     await docRef.set(notifWithId.toMap());
     return docRef.id;
+  }
+
+  // ==========================================
+  // SUPPORT INQUIRIES & TICKETS (support_tickets)
+  // ==========================================
+
+  /// Submit an Eco Support inquiry / ticket and generate confirmation notification
+  Future<String> submitSupportTicket({
+    required String userId,
+    required String userEmail,
+    required String subject,
+    required String message,
+    String category = 'General Support',
+  }) async {
+    final ticketNumber =
+        'GB-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    final col = _supportTicketsCol;
+    final docRef = col?.doc();
+
+    if (docRef != null) {
+      await docRef.set({
+        'id': docRef.id,
+        'ticketNumber': ticketNumber,
+        'userId': userId,
+        'userEmail': userEmail,
+        'subject': subject,
+        'message': message,
+        'category': category,
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Automatically generate a real-time confirmation notification for the user
+    if (userId.isNotEmpty) {
+      await createNotification(NotificationModel(
+        id: '',
+        userId: userId,
+        title: 'Support Inquiry Received (#$ticketNumber)',
+        message:
+            'We received your inquiry regarding "$subject". Our Eco Support team will review and reply within 24 hours.',
+        type: NotificationType.pickupStatusChanged,
+        timestamp: DateTime.now(),
+        isRead: false,
+        category: category,
+      ));
+    }
+
+    return ticketNumber;
   }
 }

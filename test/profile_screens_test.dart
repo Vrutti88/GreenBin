@@ -399,6 +399,56 @@ void main() {
       expect(find.text('support@greenbin.eco'), findsOneWidget);
       expect(find.text('+1 (800) 555-GREEN'), findsOneWidget);
     });
+
+    testWidgets('interacts with Eco Support dialog: copy channels and submit ticket',
+        (tester) async {
+      setViewport(tester, const Size(700, 1400));
+      await tester.pumpWidget(wrapWithApp(const HelpFaqScreen()));
+      await tester.pumpAndSettle();
+
+      final supportBtn = find.text('Contact Eco Support');
+      await tester.ensureVisible(supportBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(supportBtn);
+      await tester.pumpAndSettle();
+
+      // Verify contact options and actions
+      expect(find.text('Email Eco Support'), findsOneWidget);
+      expect(find.text('Toll-Free Hotline'), findsOneWidget);
+      expect(find.text('Send In-App Support Ticket'), findsOneWidget);
+
+      // Tap copy email button
+      final copyEmailBtn = find.widgetWithIcon(IconButton, Icons.copy_rounded).first;
+      expect(copyEmailBtn, findsOneWidget);
+      await tester.tap(copyEmailBtn);
+      await tester.pumpAndSettle();
+
+      // Fill and submit support inquiry form
+      final subjectField = find.widgetWithText(TextFormField, 'Subject');
+      expect(subjectField, findsOneWidget);
+      await tester.enterText(subjectField, 'Question regarding broken blue bin');
+
+      final messageField = find.widgetWithText(TextFormField, 'Message');
+      expect(messageField, findsOneWidget);
+      await tester.enterText(messageField, 'My bin handle is cracked and needs a replacement.');
+
+      final submitBtn = find.widgetWithText(ElevatedButton, 'Submit Support Ticket');
+      await tester.ensureVisible(submitBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(submitBtn);
+      await tester.pumpAndSettle();
+
+      // Verify success confirmation view
+      expect(find.text('Inquiry Submitted!'), findsOneWidget);
+      expect(find.textContaining('Ticket ID: GB-'), findsOneWidget);
+
+      final doneBtn = find.widgetWithText(ElevatedButton, 'Done');
+      await tester.tap(doneBtn);
+      await tester.pumpAndSettle();
+
+      // Dialog closed
+      expect(find.text('Inquiry Submitted!'), findsNothing);
+    });
   });
 
   // ===========================================================================

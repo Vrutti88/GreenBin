@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 
@@ -29,6 +33,8 @@ class HelpFaqScreen extends StatefulWidget {
 
 class _HelpFaqScreenState extends State<HelpFaqScreen> {
   final _searchController = TextEditingController();
+  final _authService = AuthService();
+  final _firestoreService = FirestoreService();
 
   int _selectedCategoryIndex = 0;
   final List<String> _categories = const [
@@ -114,43 +120,9 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
   void _showContactSupportDialog() {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Contact Eco Support'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Our community recycling coordinators are available Monday to Saturday, 8:00 AM – 6:00 PM.',
-              style: TextStyle(height: 1.35),
-            ),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.email_outlined, color: AppColors.primary, size: 20),
-                SizedBox(width: 10),
-                Text('support@greenbin.eco',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(Icons.phone_outlined, color: AppColors.primary, size: 20),
-                SizedBox(width: 10),
-                Text('+1 (800) 555-GREEN',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Close'),
-          ),
-        ],
+      builder: (dialogCtx) => _ContactSupportDialog(
+        authService: _authService,
+        firestoreService: _firestoreService,
       ),
     );
   }
@@ -289,20 +261,37 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryContainer,
-                        borderRadius: BorderRadius.circular(16),
+                        color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: AppColors.primary.withValues(alpha: 0.25),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.support_agent_rounded,
-                                  color: AppColors.primary, size: 28),
-                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.support_agent_rounded,
+                                  color: AppColors.primary,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,6 +303,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                                         color: AppColors.primary,
                                       ),
                                     ),
+                                    const SizedBox(height: 2),
                                     Text(
                                       'Our Eco Support team is here to assist you.',
                                       style: AppTextStyles.bodySmall.copyWith(
@@ -325,17 +315,23 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 16),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            icon: const Icon(Icons.chat_bubble_outline_rounded,
-                                size: 18),
+                            icon: const Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Contact Eco Support'),
                             onPressed: _showContactSupportDialog,
                           ),
@@ -402,4 +398,619 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
     ),
   );
 }
+}
+
+class _ContactSupportDialog extends StatefulWidget {
+  final AuthService authService;
+  final FirestoreService firestoreService;
+
+  const _ContactSupportDialog({
+    required this.authService,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_ContactSupportDialog> createState() => _ContactSupportDialogState();
+}
+
+class _ContactSupportDialogState extends State<_ContactSupportDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _subjectController = TextEditingController();
+  final _messageController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  String _selectedCategory = 'Pickup & Scheduling';
+  bool _isSubmitting = false;
+  String? _submittedTicketId;
+
+  final List<String> _supportCategories = const [
+    'Pickup & Scheduling',
+    'Sorting & Materials Guide',
+    'Missed Collection',
+    'Bin Delivery / Replacement',
+    'General Inquiry',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final user = widget.authService.currentUser;
+    if (user?.email != null && user!.email!.isNotEmpty) {
+      _emailController.text = user.email!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _messageController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _safeLaunch(
+    String urlString, {
+    required String fallbackCopy,
+    required String copyLabel,
+  }) async {
+    final uri = Uri.parse(urlString);
+    bool launched = false;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      launched = false;
+    }
+
+    if (!launched) {
+      await Clipboard.setData(ClipboardData(text: fallbackCopy));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$copyLabel copied to clipboard: $fallbackCopy'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _copy(String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label copied to clipboard: $text'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _submitInquiry() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final user = widget.authService.currentUser;
+      final ticketId = await widget.firestoreService.submitSupportTicket(
+        userId: user?.uid ?? '',
+        userEmail: _emailController.text.trim().isNotEmpty
+            ? _emailController.text.trim()
+            : (user?.email ?? 'resident@greenbin.eco'),
+        subject: _subjectController.text.trim(),
+        message: _messageController.text.trim(),
+        category: _selectedCategory,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _submittedTicketId = ticketId;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Support ticket #$ticketId submitted successfully!'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting ticket: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 520,
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top accent bar
+              Container(
+                height: 4,
+                width: double.infinity,
+                color: AppColors.primary,
+              ),
+
+              // Dialog header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.support_agent_rounded,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Contact Eco Support',
+                            style: AppTextStyles.titleMedium.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'We\'re here to help keep our community green',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // Scrollable content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: _submittedTicketId != null
+                      ? _buildSuccessView()
+                      : _buildContactView(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Hours & coordinators notice
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: AppColors.statusCompleted,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Our community recycling coordinators are available Monday to Saturday, 8:00 AM – 6:00 PM.',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Text(
+          'Direct Contact Channels',
+          style: AppTextStyles.labelLarge.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // 1. Email Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.email_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Email Eco Support',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'support@greenbin.eco',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                tooltip: 'Copy Email',
+                color: AppColors.textSecondary,
+                onPressed: () => _copy('support@greenbin.eco', 'Email address'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _safeLaunch(
+                  'mailto:support@greenbin.eco?subject=GreenBin%20Eco%20Support%20Inquiry',
+                  fallbackCopy: 'support@greenbin.eco',
+                  copyLabel: 'Email address',
+                ),
+                child: const Text(
+                  'Email',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // 2. Phone Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.phone_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Toll-Free Hotline',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      '+1 (800) 555-GREEN',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                tooltip: 'Copy Phone',
+                color: AppColors.textSecondary,
+                onPressed: () => _copy('+1 (800) 555-GREEN', 'Phone number'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _safeLaunch(
+                  'tel:+18005554733',
+                  fallbackCopy: '+1 (800) 555-GREEN',
+                  copyLabel: 'Phone number',
+                ),
+                child: const Text(
+                  'Call',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // 3. Send in-app message form
+        Row(
+          children: [
+            const Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Send In-App Support Ticket',
+              style: AppTextStyles.labelLarge.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Submit your question and our team will log a real-time ticket with notifications.',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _selectedCategory,
+                decoration: InputDecoration(
+                  labelText: 'Topic / Category',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                items: _supportCategories
+                    .map((cat) => DropdownMenuItem(
+                          value: cat,
+                          child: Text(cat, style: const TextStyle(fontSize: 13)),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedCategory = val);
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _subjectController,
+                decoration: InputDecoration(
+                  labelText: 'Subject',
+                  hintText: 'e.g. Question about plastics or pickup time',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Please enter a subject' : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _messageController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Message',
+                  hintText: 'Describe how we can assist you...',
+                  alignLabelWithHint: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Please enter your message' : null,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
+                  label: Text(
+                    _isSubmitting ? 'Submitting Ticket...' : 'Submit Support Ticket',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onPressed: _isSubmitting ? null : _submitInquiry,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuccessView() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: AppColors.primaryContainer,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_circle_rounded,
+            color: AppColors.primary,
+            size: 48,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Inquiry Submitted!',
+          style: AppTextStyles.titleMedium.copyWith(
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Text(
+            'Ticket ID: $_submittedTicketId',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Our community recycling coordinators have logged your ticket and sent a confirmation to your notifications. We will respond within 24 hours.',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
 }
