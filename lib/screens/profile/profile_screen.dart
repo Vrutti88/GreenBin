@@ -681,6 +681,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildEnvironmentalImpactCard(UserModel? profile) {
+    final totalPickups = profile?.totalPickups ?? 0;
+    final zeroWasteLevel = (totalPickups ~/ 3) + 1;
+    final zeroWasteRank = totalPickups >= 10
+        ? 'Eco Master'
+        : totalPickups >= 5
+            ? 'Eco Champion'
+            : 'Eco Explorer';
+    final pickupsInLevel = totalPickups % 3;
+    final pickupsNeeded = 3 - pickupsInLevel;
+    final levelProgress = (pickupsInLevel / 3.0).clamp(0.0, 1.0);
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -744,27 +755,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildMetricTile(
-                            label: 'Recycling Pickups',
-                            value: '${profile?.totalPickups ?? 0}',
-                            icon: Icons.local_shipping_outlined,
-                            illustrationType: StatIllustrationType.pickups,
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildMetricTile(
+                              label: 'Recycling Pickups',
+                              value: '$totalPickups',
+                              icon: Icons.local_shipping_outlined,
+                              illustrationType: StatIllustrationType.pickups,
+                              subtitle: 'Completed',
+                              accentColor: AppColors.primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildMetricTile(
-                            label: 'Waste Diverted',
-                            value:
-                                '${(profile?.kgRecycled ?? 0.0).toStringAsFixed(1)} kg',
-                            icon: Icons.scale_outlined,
-                            illustrationType: StatIllustrationType.divertedKg,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildMetricTile(
+                              label: 'Zero-Waste Rank',
+                              value: 'Level $zeroWasteLevel',
+                              icon: Icons.military_tech_rounded,
+                              illustrationType:
+                                  StatIllustrationType.zeroWasteRank,
+                              subtitle: zeroWasteRank,
+                              accentColor: AppColors.tertiary,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            AppColors.primaryContainer.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          width: 1,
                         ),
-                      ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Next: Level ${zeroWasteLevel + 1}',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '$pickupsNeeded to level up',
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: levelProgress,
+                              minHeight: 6,
+                              backgroundColor: AppColors.borderLight,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppColors.tertiary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -916,7 +989,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String value,
     required IconData icon,
     StatIllustrationType? illustrationType,
+    String? subtitle,
+    Color? accentColor,
   }) {
+    final color = accentColor ?? AppColors.primary;
     return InteractiveBounce(
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -924,12 +1000,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.16),
+            color: color.withValues(alpha: 0.16),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.04),
+              color: color.withValues(alpha: 0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -941,7 +1017,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, size: 20, color: AppColors.primary),
+                Icon(icon, size: 20, color: color),
                 if (illustrationType != null)
                   StatIllustration(
                     type: illustrationType,
@@ -954,15 +1030,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
               value,
               style: AppTextStyles.titleLarge.copyWith(
                 fontWeight: FontWeight.w700,
-                color: AppColors.primary,
+                color: color,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               label,
               style: AppTextStyles.labelSmall.copyWith(
                 color: AppColors.textSecondary,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  subtitle,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 9.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ],
         ),
       ),

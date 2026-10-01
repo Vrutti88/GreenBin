@@ -73,10 +73,15 @@ void main() {
       expect(find.text('vrutti@greenbin.eco'), findsOneWidget);
       expect(find.text('Verified Resident Member'), findsOneWidget);
 
-      // Environmental Footprint
+      // Environmental Footprint & Zero-Waste Rank
       expect(find.text('Your Environmental Footprint'), findsOneWidget);
       expect(find.text('15'), findsOneWidget);
-      expect(find.text('62.4 kg'), findsOneWidget);
+      expect(find.text('Recycling Pickups'), findsOneWidget);
+      expect(find.text('Level 6'), findsOneWidget);
+      expect(find.text('Zero-Waste Rank'), findsOneWidget);
+      expect(find.text('Eco Master'), findsOneWidget);
+      expect(find.text('62.4 kg'), findsNothing);
+      expect(find.text('Waste Diverted'), findsNothing);
 
       // Contact & Address
       expect(find.text('Account & Contact Details'), findsOneWidget);
