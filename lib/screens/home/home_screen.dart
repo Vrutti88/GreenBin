@@ -523,9 +523,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? userModel!.kgRecycled
                 : completedPickups.length * 4.5;
 
-            final int totalPickupsCount = (userModel?.totalPickups ?? 0) > 0
-                ? userModel!.totalPickups
-                : allPickups.length;
+            final int totalPickupsCount = pickupsSnapshot.hasData
+                ? allPickups.length
+                : (userModel?.totalPickups ?? allPickups.length);
+
+            // Auto-heal user profile totalPickups in Firestore if out of sync
+            if (pickupsSnapshot.hasData &&
+                userModel != null &&
+                userModel.totalPickups != allPickups.length &&
+                userId.isNotEmpty) {
+              _firestoreService.syncUserPickupCount(userId, allPickups.length);
+            }
 
             return SingleChildScrollView(
               child: ResponsiveContainer(

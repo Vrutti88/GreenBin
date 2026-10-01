@@ -197,6 +197,42 @@ class FirestoreService {
     return pickup;
   }
 
+  /// Keep the totalPickups counter on users/{userId} strictly in sync with the true count of pickups
+  Future<void> syncUserPickupCount(String userId, int trueCount) async {
+    final col = _usersCol;
+    if (col == null || userId.isEmpty) return;
+    try {
+      await col.doc(userId).set({
+        'totalPickups': trueCount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Permanently delete a pickup request from Firestore and re-synchronize resident stats
+  Future<void> deletePickup({
+    required String pickupId,
+    required String userId,
+  }) async {
+    final col = _pickupsCol;
+    if (col == null || pickupId.isEmpty) return;
+
+    try {
+      await col.doc(pickupId).delete();
+    } catch (e) {
+      debugPrint('Error deleting pickup document $pickupId: $e');
+    }
+
+    if (userId.isNotEmpty) {
+      try {
+        final remainingSnap =
+            await col.where('userId', isEqualTo: userId).get();
+        final count = remainingSnap.docs.length;
+        await syncUserPickupCount(userId, count);
+      } catch (_) {}
+    }
+  }
+
   /// Stream pickups for a specific resident (sorted by pickup date descending)
   Stream<List<PickupModel>> streamUserPickups(String userId) {
     final col = _pickupsCol;
@@ -207,9 +243,18 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) {
       final pickups = snapshot.docs
-          .map((doc) => evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc)))
+          .map((doc) =>
+              evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc)))
           .toList();
       pickups.sort((a, b) => b.pickupDate.compareTo(a.pickupDate));
+
+      // Auto-synchronize users/{userId}.totalPickups if count drifted
+      if (_usersCol != null && userId.isNotEmpty) {
+        _usersCol!.doc(userId).update({
+          'totalPickups': pickups.length,
+        }).catchError((_) {});
+      }
+
       return pickups;
     });
   }

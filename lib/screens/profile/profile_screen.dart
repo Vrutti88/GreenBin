@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
+import '../../models/pickup_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
@@ -23,12 +24,14 @@ class ProfileScreen extends StatefulWidget {
   final bool isEmbedded;
   final UserModel? initialUser;
   final Stream<UserModel?>? userStream;
+  final Stream<List<PickupModel>>? pickupsStream;
 
   const ProfileScreen({
     super.key,
     this.isEmbedded = false,
     this.initialUser,
     this.userStream,
+    this.pickupsStream,
   });
 
   @override
@@ -145,39 +148,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : 'Not set';
         final address = profile.fullAddress;
 
-        final content = LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
+        final effectivePickupsStream = widget.pickupsStream ??
+            (userId.isNotEmpty
+                ? _firestoreService.streamUserPickups(userId)
+                : const Stream.empty());
 
-            if (width >= 1000) {
-              return _buildDesktopLayout(
-                profile: profile,
-                displayName: displayName,
-                email: email,
-                phone: phone,
-                address: address,
-              );
-            } else if (width >= 700) {
-              return _buildTabletLayout(
-                profile: profile,
-                displayName: displayName,
-                email: email,
-                phone: phone,
-                address: address,
-              );
-            } else {
-              return _buildMobileLayout(
-                profile: profile,
-                displayName: displayName,
-                email: email,
-                phone: phone,
-                address: address,
-              );
-            }
+        return StreamBuilder<List<PickupModel>>(
+          stream: effectivePickupsStream,
+          builder: (context, pickupsSnapshot) {
+            final pickups = pickupsSnapshot.data;
+            final actualTotal = pickupsSnapshot.hasData
+                ? pickups!.length
+                : profile.totalPickups;
+            final actualCompleted = pickupsSnapshot.hasData
+                ? pickups!.where((p) => p.status.isCollected).length
+                : profile.totalPickups;
+
+            final content = LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+
+                if (width >= 1000) {
+                  return _buildDesktopLayout(
+                    profile: profile,
+                    displayName: displayName,
+                    email: email,
+                    phone: phone,
+                    address: address,
+                    actualTotalPickups: actualTotal,
+                    actualCompletedPickups: actualCompleted,
+                  );
+                } else if (width >= 700) {
+                  return _buildTabletLayout(
+                    profile: profile,
+                    displayName: displayName,
+                    email: email,
+                    phone: phone,
+                    address: address,
+                    actualTotalPickups: actualTotal,
+                    actualCompletedPickups: actualCompleted,
+                  );
+                } else {
+                  return _buildMobileLayout(
+                    profile: profile,
+                    displayName: displayName,
+                    email: email,
+                    phone: phone,
+                    address: address,
+                    actualTotalPickups: actualTotal,
+                    actualCompletedPickups: actualCompleted,
+                  );
+                }
+              },
+            );
+
+            return _wrapScaffold(context, content);
           },
         );
-
-        return _wrapScaffold(context, content);
       },
     );
   }
@@ -396,6 +423,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String email,
     required String phone,
     required String address,
+    int? actualTotalPickups,
+    int? actualCompletedPickups,
   }) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -412,7 +441,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           AppFadeSlide(
             duration: const Duration(milliseconds: 260),
             offsetDistance: 6,
-            child: _buildEnvironmentalImpactCard(profile),
+            child: _buildEnvironmentalImpactCard(
+              profile,
+              actualTotalPickups: actualTotalPickups,
+              actualCompletedPickups: actualCompletedPickups,
+            ),
           ),
           const SizedBox(height: 16),
           AppFadeSlide(
@@ -443,6 +476,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String email,
     required String phone,
     required String address,
+    int? actualTotalPickups,
+    int? actualCompletedPickups,
   }) {
     return Center(
       child: ConstrainedBox(
@@ -462,7 +497,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               AppFadeSlide(
                 duration: const Duration(milliseconds: 260),
                 offsetDistance: 6,
-                child: _buildEnvironmentalImpactCard(profile),
+                child: _buildEnvironmentalImpactCard(
+                  profile,
+                  actualTotalPickups: actualTotalPickups,
+                  actualCompletedPickups: actualCompletedPickups,
+                ),
               ),
               const SizedBox(height: 18),
               AppFadeSlide(
@@ -495,6 +534,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String email,
     required String phone,
     required String address,
+    int? actualTotalPickups,
+    int? actualCompletedPickups,
   }) {
     return Center(
       child: ConstrainedBox(
@@ -519,7 +560,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     AppFadeSlide(
                       duration: const Duration(milliseconds: 280),
                       offsetDistance: 6,
-                      child: _buildEnvironmentalImpactCard(profile),
+                      child: _buildEnvironmentalImpactCard(
+                        profile,
+                        actualTotalPickups: actualTotalPickups,
+                        actualCompletedPickups: actualCompletedPickups,
+                      ),
                     ),
                   ],
                 ),
@@ -680,8 +725,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildEnvironmentalImpactCard(UserModel? profile) {
-    final totalPickups = profile?.totalPickups ?? 0;
+  Widget _buildEnvironmentalImpactCard(
+    UserModel? profile, {
+    int? actualTotalPickups,
+    int? actualCompletedPickups,
+  }) {
+    final totalPickups = actualTotalPickups ?? profile?.totalPickups ?? 0;
+    final completedPickups = actualCompletedPickups ?? totalPickups;
     final zeroWasteLevel = (totalPickups ~/ 3) + 1;
     final zeroWasteRank = totalPickups >= 10
         ? 'Eco Master'
@@ -691,6 +741,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final pickupsInLevel = totalPickups % 3;
     final pickupsNeeded = 3 - pickupsInLevel;
     final levelProgress = (pickupsInLevel / 3.0).clamp(0.0, 1.0);
+
+    final subtitleText = completedPickups == totalPickups && totalPickups > 0
+        ? 'All Completed'
+        : (completedPickups > 0
+            ? '$completedPickups Completed'
+            : 'Lifetime Total');
 
     return Card(
       elevation: 0,
@@ -765,7 +821,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               value: '$totalPickups',
                               icon: Icons.local_shipping_outlined,
                               illustrationType: StatIllustrationType.pickups,
-                              subtitle: 'Completed',
+                              subtitle: subtitleText,
                               accentColor: AppColors.primary,
                             ),
                           ),
@@ -787,54 +843,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: 14,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color:
-                            AppColors.primaryContainer.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.surfaceLight,
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.12),
+                          color: AppColors.tertiary.withValues(alpha: 0.22),
                           width: 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.tertiary.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  'Next: Level ${zeroWasteLevel + 1}',
-                                  style: AppTextStyles.labelSmall.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                              Flexible(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.military_tech_rounded,
+                                      size: 18,
+                                      color: AppColors.tertiary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        'Level $zeroWasteLevel Progress',
+                                        style:
+                                            AppTextStyles.labelMedium.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                '$pickupsNeeded to level up',
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.tertiary
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '$pickupsInLevel / 3 Pickups',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.tertiary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 10),
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                             child: LinearProgressIndicator(
                               value: levelProgress,
-                              minHeight: 6,
+                              minHeight: 8,
                               backgroundColor: AppColors.borderLight,
                               valueColor: const AlwaysStoppedAnimation<Color>(
                                 AppColors.tertiary,
                               ),
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '$pickupsNeeded more pickup${pickupsNeeded == 1 ? '' : 's'} to unlock Level ${zeroWasteLevel + 1}',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${(levelProgress * 100).toInt()}%',
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.tertiary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

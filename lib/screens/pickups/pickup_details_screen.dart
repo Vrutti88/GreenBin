@@ -170,6 +170,70 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
     }
   }
 
+  bool _isDeleting = false;
+
+  Future<void> _handleDeletePickup(PickupModel pickup) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Pickup Request'),
+        content: const Text(
+          'Are you sure you want to permanently delete this pickup record from the database? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusCancelled,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      await _firestoreService.deletePickup(
+        pickupId: pickup.id,
+        userId: pickup.userId,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pickup record deleted from database.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting pickup: $e'),
+            backgroundColor: AppColors.statusCancelled,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final stream = widget.pickupStream ??
@@ -1208,6 +1272,20 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
             isFullWidth: isFullWidth,
             isLoading: _isCancelling,
             onPressed: () => _handleCancelPickup(pickup),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (pickup.status == PickupStatus.cancelled ||
+            pickup.status == PickupStatus.collected ||
+            pickup.status == PickupStatus.completed) ...[
+          SecondaryButton(
+            text: 'Delete Pickup Record',
+            icon: Icons.delete_outline_rounded,
+            textColor: AppColors.statusCancelled,
+            borderColor: AppColors.statusCancelled.withValues(alpha: 0.5),
+            isFullWidth: isFullWidth,
+            isLoading: _isDeleting,
+            onPressed: () => _handleDeletePickup(pickup),
           ),
           const SizedBox(height: 12),
         ],
