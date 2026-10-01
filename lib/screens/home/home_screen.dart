@@ -899,7 +899,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // =========================================================================
   Widget _buildRecyclingStatistics({
     required int totalPickups,
-    required double divertedKg,
+    double? divertedKg,
     required int activePickups,
   }) {
     return LayoutBuilder(
@@ -910,12 +910,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final bool showSubtitle = width >= 340;
 
-        if (width >= 850) {
-          columns = 4;
+        if (width >= 800) {
+          columns = 3;
           aspectRatio = 1.4;
         } else if (width >= 650) {
-          columns = 4;
-          aspectRatio = 1.15;
+          columns = 3;
+          aspectRatio = 1.2;
         } else if (width >= 360) {
           columns = 2;
           aspectRatio = 1.25;
@@ -957,20 +957,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.primary,
               illustrationType: StatIllustrationType.pickups,
               watermarkIcon: Icons.local_shipping_rounded,
-              onTap: () => Navigator.pushNamed(context, AppRoutes.pickups),
-            ),
-            _buildStatCard(
-              icon: Icons.scale_rounded,
-              label: 'Diverted (kg)',
-              value: '${divertedKg.toStringAsFixed(1)} kg',
-              subtitle: 'Saved from landfill',
-              badgeText: 'Landfill Saved',
-              progressLabel: 'Target: 10 kg',
-              showSubtitle: showSubtitle,
-              color: AppColors.secondary,
-              illustrationType: StatIllustrationType.divertedKg,
-              watermarkIcon: Icons.recycling_rounded,
-              onTap: () => Navigator.pushNamed(context, AppRoutes.pickups),
+              onTap: () => setState(() => _activeTab = HomeNavTab.pickups),
             ),
             _buildStatCard(
               icon: Icons.pending_actions_rounded,
@@ -983,7 +970,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.statusPending,
               illustrationType: StatIllustrationType.activePickups,
               watermarkIcon: Icons.schedule_rounded,
-              onTap: () => Navigator.pushNamed(context, AppRoutes.pickups),
+              onTap: () => setState(() => _activeTab = HomeNavTab.pickups),
             ),
             _buildStatCard(
               icon: Icons.energy_savings_leaf_rounded,
@@ -996,7 +983,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.tertiary,
               illustrationType: StatIllustrationType.zeroWasteRank,
               watermarkIcon: Icons.military_tech_rounded,
-              onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+              onTap: () => setState(() => _activeTab = HomeNavTab.profile),
             ),
           ],
         );

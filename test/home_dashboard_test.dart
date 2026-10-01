@@ -59,11 +59,11 @@ void main() {
       expect(find.text('Doorstep Pickup'), findsOneWidget);
       expect(find.text('Schedule Pickup Now'), findsOneWidget);
 
-      // 4. Recycling Statistics (4 Metrics)
+      // 4. Recycling Statistics (Metrics Grid)
       expect(find.text('Total Pickups'), findsOneWidget);
-      expect(find.text('Diverted (kg)'), findsOneWidget);
       expect(find.text('Active Pickups'), findsOneWidget);
       expect(find.text('Zero-Waste Rank'), findsOneWidget);
+      expect(find.text('Diverted (kg)'), findsNothing);
 
       // 5. Upcoming Pickup section
       expect(find.text('Upcoming Pickup'), findsOneWidget);
