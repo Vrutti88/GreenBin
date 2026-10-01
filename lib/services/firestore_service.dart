@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import '../models/user_model.dart';
 import '../models/pickup_model.dart';
 import '../models/notification_model.dart';
+import 'preferences_service.dart';
 
 /// Service managing all Cloud Firestore operations for GreenBin with safe test fallback.
 /// Enforces schemas:
@@ -133,6 +134,13 @@ class FirestoreService {
       );
     } catch (_) {
       // Safe fallback if notifications collection is restricted
+    }
+
+    // Evaluate if this new pickup falls within user's reminder window
+    try {
+      await checkAndGenerateUpcomingReminders(pickup.userId);
+    } catch (_) {
+      // Safe fallback
     }
 
     return docRef.id;
@@ -393,5 +401,80 @@ class FirestoreService {
     }
 
     return ticketNumber;
+  }
+
+  // ==========================================
+  // REAL-TIME REMINDER GENERATION
+  // ==========================================
+
+  /// Check user's upcoming scheduled pickups and generate reminder notifications
+  /// if within the resident's reminder window (e.g. 1 day before, 2 hours before, etc.).
+  Future<int> checkAndGenerateUpcomingReminders(String userId) async {
+    final col = _pickupsCol;
+    final notifsCol = _notificationsCol;
+    if (col == null || notifsCol == null || userId.isEmpty) return 0;
+
+    try {
+      final prefsService = PreferencesService();
+      final remindersEnabled = await prefsService.getPickupReminders();
+      if (!remindersEnabled) return 0;
+
+      final reminderWindow = await prefsService.getReminderWindow();
+      final now = DateTime.now();
+
+      // Query active scheduled pickups for this user
+      final snapshot = await col
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: 'Scheduled')
+          .get();
+
+      int remindersCreated = 0;
+
+      for (final doc in snapshot.docs) {
+        final pickup = PickupModel.fromFirestore(doc);
+        final reminderDueTime = prefsService.calculateReminderDateTime(
+          pickupDate: pickup.pickupDate,
+          timeSlot: pickup.timeSlot,
+          window: reminderWindow,
+        );
+
+        // Check if current time is on or after the reminder threshold,
+        // and before the pickup date has passed
+        final pickupEnd = pickup.pickupDate.add(const Duration(days: 1));
+        if (now.isAfter(reminderDueTime) && now.isBefore(pickupEnd)) {
+          // Check if a reminder notification already exists for this pickup
+          final existing = await notifsCol
+              .where('userId', isEqualTo: userId)
+              .where('pickupId', isEqualTo: pickup.id)
+              .where('type', isEqualTo: NotificationType.pickupReminder.name)
+              .limit(1)
+              .get();
+
+          if (existing.docs.isEmpty) {
+            final dateStr =
+                '${pickup.pickupDate.day}/${pickup.pickupDate.month}/${pickup.pickupDate.year}';
+            await createNotification(
+              NotificationModel(
+                id: '',
+                userId: userId,
+                pickupId: pickup.id,
+                type: NotificationType.pickupReminder,
+                title: 'Upcoming Pickup Reminder',
+                message:
+                    'Reminder: Your ${pickup.wasteCategory} recycling collection is scheduled for $dateStr at ${pickup.timeSlot}. Please ensure your bins are placed outside.',
+                timestamp: DateTime.now(),
+                isRead: false,
+                category: pickup.wasteCategory,
+              ),
+            );
+            remindersCreated++;
+          }
+        }
+      }
+
+      return remindersCreated;
+    } catch (_) {
+      return 0;
+    }
   }
 }

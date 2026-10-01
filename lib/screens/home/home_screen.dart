@@ -50,6 +50,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
 
+  @override
+  void initState() {
+    super.initState();
+    final uid = _authService.currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      _firestoreService.checkAndGenerateUpcomingReminders(uid);
+    }
+  }
+
   static const List<AppNavDestination> _mobileNavDestinations = [
     AppNavDestination(
       icon: Icons.home_outlined,

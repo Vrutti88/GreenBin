@@ -55,6 +55,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (widget.initialNotifications != null) {
       _localNotifications = List.from(widget.initialNotifications!);
     }
+    final uid = _authService.currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      _firestoreService.checkAndGenerateUpcomingReminders(uid);
+    }
   }
 
   List<NotificationModel> _applyFilter(List<NotificationModel> items) {

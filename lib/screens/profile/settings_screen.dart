@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
+import '../../services/preferences_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 
@@ -18,14 +21,110 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final _prefsService = PreferencesService();
+  final _authService = AuthService();
+  final _firestoreService = FirestoreService();
+
   // Notification preferences
-  bool _pickupReminders = true;
-  bool _statusUpdates = true;
-  bool _milestoneAlerts = true;
+  bool _pickupReminders = PreferencesService.defaultPickupReminders;
+  bool _statusUpdates = PreferencesService.defaultStatusUpdates;
+  bool _milestoneAlerts = PreferencesService.defaultMilestoneAlerts;
 
   // App preferences
-  bool _soundAndVibrate = true;
-  String _reminderWindow = '1 day before';
+  bool _soundAndVibrate = PreferencesService.defaultSoundAndVibrate;
+  String _reminderWindow = PreferencesService.defaultReminderWindow;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final userId = _authService.currentUser?.uid;
+    if (userId != null && userId.isNotEmpty) {
+      await _prefsService.loadFromFirestore(userId);
+    }
+    final pickupReminders = await _prefsService.getPickupReminders();
+    final statusUpdates = await _prefsService.getStatusUpdates();
+    final milestoneAlerts = await _prefsService.getMilestoneAlerts();
+    final soundAndVibrate = await _prefsService.getSoundAndVibrate();
+    final reminderWindow = await _prefsService.getReminderWindow();
+
+    if (mounted) {
+      setState(() {
+        _pickupReminders = pickupReminders;
+        _statusUpdates = statusUpdates;
+        _milestoneAlerts = milestoneAlerts;
+        _soundAndVibrate = soundAndVibrate;
+        _reminderWindow = reminderWindow;
+      });
+    }
+  }
+
+  Future<void> _onReminderWindowChanged(String? val) async {
+    if (val == null) return;
+    setState(() => _reminderWindow = val);
+    final userId = _authService.currentUser?.uid;
+    await _prefsService.setReminderWindow(val, userId: userId);
+
+    if (userId != null && userId.isNotEmpty && _pickupReminders) {
+      await _firestoreService.checkAndGenerateUpcomingReminders(userId);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Reminder timing set to $val'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onPickupRemindersChanged(bool val) async {
+    setState(() => _pickupReminders = val);
+    final userId = _authService.currentUser?.uid;
+    await _prefsService.setPickupReminders(val, userId: userId);
+
+    if (userId != null && userId.isNotEmpty && val) {
+      await _firestoreService.checkAndGenerateUpcomingReminders(userId);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              val ? 'Pickup reminders enabled' : 'Pickup reminders disabled'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onStatusUpdatesChanged(bool val) async {
+    setState(() => _statusUpdates = val);
+    final userId = _authService.currentUser?.uid;
+    await _prefsService.setStatusUpdates(val, userId: userId);
+  }
+
+  Future<void> _onMilestoneAlertsChanged(bool val) async {
+    setState(() => _milestoneAlerts = val);
+    final userId = _authService.currentUser?.uid;
+    await _prefsService.setMilestoneAlerts(val, userId: userId);
+  }
+
+  Future<void> _onSoundAndVibrateChanged(bool val) async {
+    setState(() => _soundAndVibrate = val);
+    final userId = _authService.currentUser?.uid;
+    await _prefsService.setSoundAndVibrate(val, userId: userId);
+  }
 
   void _showPrivacyPolicy() {
     showDialog(
@@ -94,8 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Pickup Reminders',
                           subtitle: 'Receive alerts prior to your collection window',
                           value: _pickupReminders,
-                          onChanged: (val) =>
-                              setState(() => _pickupReminders = val),
+                          onChanged: _onPickupRemindersChanged,
                         ),
                         const Divider(height: 1, indent: 56),
                         _buildSwitchTile(
@@ -103,8 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Status Updates',
                           subtitle: 'Alerts when collection crew is en route',
                           value: _statusUpdates,
-                          onChanged: (val) =>
-                              setState(() => _statusUpdates = val),
+                          onChanged: _onStatusUpdatesChanged,
                         ),
                         const Divider(height: 1, indent: 56),
                         _buildSwitchTile(
@@ -112,8 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Milestone Alerts',
                           subtitle: 'Celebrate diverted waste milestones and badges',
                           value: _milestoneAlerts,
-                          onChanged: (val) =>
-                              setState(() => _milestoneAlerts = val),
+                          onChanged: _onMilestoneAlertsChanged,
                         ),
                       ],
                     ),
@@ -156,11 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 child: Text('2 days before'),
                               ),
                             ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _reminderWindow = val);
-                              }
-                            },
+                            onChanged: _onReminderWindowChanged,
                           ),
                         ),
                         const Divider(height: 1, indent: 56),
@@ -169,8 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Sound & Vibration',
                           subtitle: 'Play sound for critical pickup notifications',
                           value: _soundAndVibrate,
-                          onChanged: (val) =>
-                              setState(() => _soundAndVibrate = val),
+                          onChanged: _onSoundAndVibrateChanged,
                         ),
                       ],
                     ),
