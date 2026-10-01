@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../models/pickup_model.dart';
 import '../models/notification_model.dart';
+import 'auth_service.dart';
 import 'preferences_service.dart';
 
 /// Service managing all Cloud Firestore operations for GreenBin with safe test fallback.
@@ -146,6 +148,55 @@ class FirestoreService {
     return docRef.id;
   }
 
+  // Sets to track pickups synced in this session to prevent redundant writes
+  final Set<String> _syncedCollectedIds = {};
+  final Set<String> _syncedInTransitIds = {};
+
+  /// Dynamically evaluates whether a pickup's scheduled window has started or passed,
+  /// returns the updated model, and asynchronously triggers background sync to Firestore
+  /// and notification creation.
+  PickupModel evaluateAndAutoAdvancePickup(PickupModel pickup, [DateTime? referenceTime]) {
+    final now = referenceTime ?? DateTime.now();
+    if (pickup.status == PickupStatus.collected ||
+        pickup.status == PickupStatus.completed ||
+        pickup.status == PickupStatus.cancelled) {
+      return pickup;
+    }
+
+    final (start, end) = PreferencesService.parseSlotWindowStatic(
+      pickup.pickupDate,
+      pickup.timeSlot,
+    );
+
+    if (now.isAfter(end)) {
+      if (!_syncedCollectedIds.contains(pickup.id)) {
+        _syncedCollectedIds.add(pickup.id);
+        markPickupCollected(pickup.id);
+      }
+      return pickup.copyWith(
+        status: PickupStatus.collected,
+        updatedAt: now,
+      );
+    } else if (now.isAfter(start)) {
+      if (pickup.status != PickupStatus.inTransit) {
+        if (!_syncedInTransitIds.contains(pickup.id)) {
+          _syncedInTransitIds.add(pickup.id);
+          updatePickupStatus(
+            pickupId: pickup.id,
+            status: PickupStatus.inTransit,
+            assignedTeam: pickup.assignedTeam ?? 'North Eco Crew #4',
+          );
+        }
+        return pickup.copyWith(
+          status: PickupStatus.inTransit,
+          assignedTeam: pickup.assignedTeam ?? 'North Eco Crew #4',
+          updatedAt: now,
+        );
+      }
+    }
+    return pickup;
+  }
+
   /// Stream pickups for a specific resident (sorted by pickup date descending)
   Stream<List<PickupModel>> streamUserPickups(String userId) {
     final col = _pickupsCol;
@@ -156,7 +207,7 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) {
       final pickups = snapshot.docs
-          .map((doc) => PickupModel.fromFirestore(doc))
+          .map((doc) => evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc)))
           .toList();
       pickups.sort((a, b) => b.pickupDate.compareTo(a.pickupDate));
       return pickups;
@@ -170,7 +221,7 @@ class FirestoreService {
 
     return col.snapshots().map((snapshot) {
       final pickups = snapshot.docs
-          .map((doc) => PickupModel.fromFirestore(doc))
+          .map((doc) => evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc)))
           .toList();
       pickups.sort((a, b) => b.pickupDate.compareTo(a.pickupDate));
       return pickups;
@@ -183,7 +234,7 @@ class FirestoreService {
     if (col == null) return null;
     final doc = await col.doc(pickupId).get();
     if (!doc.exists) return null;
-    return PickupModel.fromFirestore(doc);
+    return evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc));
   }
 
   /// Real-time stream of a single pickup document by ID
@@ -193,7 +244,7 @@ class FirestoreService {
 
     return col.doc(pickupId).snapshots().map((doc) {
       if (!doc.exists) return null;
-      return PickupModel.fromFirestore(doc);
+      return evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc));
     });
   }
 
@@ -207,53 +258,80 @@ class FirestoreService {
     if (col == null) return;
 
     final Map<String, dynamic> updates = {
-      'status': status.firestoreValue, // "Scheduled" or "Collected"
+      'status': status.firestoreValue, // "Scheduled", "In Transit", "Collected"
       'updatedAt': FieldValue.serverTimestamp(),
     };
     if (assignedTeam != null) {
       updates['assignedTeam'] = assignedTeam;
     }
 
-    await col.doc(pickupId).set(updates, SetOptions(merge: true));
+    try {
+      await col.doc(pickupId).set(updates, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to set pickup status: $e');
+    }
 
-    // Create real-time notification for the status change if user enabled status updates
+    // Always attempt notification generation for the resident
     try {
       final prefsService = PreferencesService();
       final statusUpdatesEnabled = await prefsService.getStatusUpdates();
 
       final pickup = await getPickupById(pickupId);
-      if (pickup != null && pickup.userId.isNotEmpty) {
+      final targetUserId = pickup?.userId.isNotEmpty == true
+          ? pickup!.userId
+          : AuthService().currentUser?.uid;
+
+      if (targetUserId != null && targetUserId.isNotEmpty) {
         if (statusUpdatesEnabled) {
           final notifTitle = status == PickupStatus.collected
               ? 'Materials Diverted & Collected'
               : status == PickupStatus.inTransit
                   ? 'Collection Crew En Route'
                   : 'Pickup Status Updated';
+          final wasteCat = pickup?.wasteCategory ?? 'Recycling';
           final notifMessage = status == PickupStatus.collected
-              ? 'Your ${pickup.wasteCategory} recycling batch was successfully collected and transported to the recovery center.'
+              ? 'Your $wasteCat recycling batch was successfully collected and transported to the recovery center.'
               : status == PickupStatus.inTransit
-                  ? '${assignedTeam ?? 'Collection Crew'} is heading towards your location for the scheduled ${pickup.wasteCategory} collection.'
+                  ? '${assignedTeam ?? 'Collection Crew'} is heading towards your location for the scheduled $wasteCat collection.'
                   : 'Your pickup status is now ${status.displayName}.';
 
-          await createNotification(
-            NotificationModel(
-              id: '',
-              userId: pickup.userId,
-              pickupId: pickupId,
-              type: NotificationType.pickupStatusChanged,
-              title: notifTitle,
-              message: notifMessage,
-              timestamp: DateTime.now(),
-              isRead: false,
-              category: pickup.wasteCategory,
-            ),
-          );
-          await prefsService.triggerFeedbackIfEnabled();
+          // Avoid duplicate notification if already sent for same pickup and title
+          bool alreadyExists = false;
+          if (_notificationsCol != null && pickupId.isNotEmpty) {
+            try {
+              final existing = await _notificationsCol!
+                  .where('userId', isEqualTo: targetUserId)
+                  .where('pickupId', isEqualTo: pickupId)
+                  .where('title', isEqualTo: notifTitle)
+                  .limit(1)
+                  .get();
+              if (existing.docs.isNotEmpty) {
+                alreadyExists = true;
+              }
+            } catch (_) {}
+          }
+
+          if (!alreadyExists) {
+            await createNotification(
+              NotificationModel(
+                id: '',
+                userId: targetUserId,
+                pickupId: pickupId,
+                type: NotificationType.pickupStatusChanged,
+                title: notifTitle,
+                message: notifMessage,
+                timestamp: DateTime.now(),
+                isRead: false,
+                category: wasteCat,
+              ),
+            );
+            await prefsService.triggerFeedbackIfEnabled();
+          }
         }
 
         // If completed/collected, evaluate milestone achievements
         if (status == PickupStatus.collected) {
-          await checkAndGenerateMilestones(pickup.userId);
+          await checkAndGenerateMilestones(targetUserId);
         }
       }
     } catch (_) {
@@ -270,15 +348,19 @@ class FirestoreService {
 
     try {
       final pickup = await getPickupById(pickupId);
-      if (pickup != null && pickup.userId.isNotEmpty && _usersCol != null) {
-        await _usersCol!.doc(pickup.userId).set({
+      final targetUserId = pickup?.userId.isNotEmpty == true
+          ? pickup!.userId
+          : AuthService().currentUser?.uid;
+
+      if (targetUserId != null && targetUserId.isNotEmpty && _usersCol != null) {
+        await _usersCol!.doc(targetUserId).set({
           'totalPickups': FieldValue.increment(1),
           'kgRecycled': FieldValue.increment(weightKg),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
         // Evaluate milestone awards
-        await checkAndGenerateMilestones(pickup.userId);
+        await checkAndGenerateMilestones(targetUserId);
       }
     } catch (_) {
       // Safe fallback
@@ -327,11 +409,7 @@ class FirestoreService {
     try {
       final snapshot = await col
           .where('userId', isEqualTo: userId)
-          .where('status', whereIn: [
-            PickupStatus.pending.firestoreValue,
-            PickupStatus.scheduled.firestoreValue,
-            PickupStatus.inTransit.firestoreValue,
-          ])
+          .where('status', whereIn: const ['Scheduled', 'In Transit'])
           .get();
 
       final now = DateTime.now();

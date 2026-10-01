@@ -44,6 +44,15 @@ class _MyPickupsScreenState extends State<MyPickupsScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Scheduled', 'Collected', 'Cancelled'];
 
+  @override
+  void initState() {
+    super.initState();
+    final uid = widget.initialUserId ?? _authService.currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      _firestoreService.autoAdvancePickupLifecycle(uid);
+    }
+  }
+
   List<PickupModel> _filterPickups(List<PickupModel> pickups) {
     switch (_selectedFilterIndex) {
       case 1: // Scheduled

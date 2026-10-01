@@ -69,6 +69,26 @@ void main() {
     updatedAt: DateTime(2026, 9, 29, 10, 0),
   );
 
+  final sampleInTransitPickup = PickupModel(
+    id: 'GB-TEST-1004',
+    userId: 'user-resident-1',
+    residentName: 'Vrutti Patil',
+    residentPhone: '+1 555-0123',
+    category: 'Plastic',
+    subCategories: const ['PET Bottles'],
+    pickupDate: DateTime(2026, 10, 1, 14, 0),
+    timeSlot: '2:00 PM - 4:00 PM',
+    street: '100 Green Eco Way',
+    city: 'Springfield Eco Ward',
+    landmark: 'Near Solar Park Gate',
+    postalCode: '97477',
+    notes: '',
+    status: PickupStatus.inTransit,
+    assignedTeam: 'North Eco Crew #4',
+    createdAt: DateTime(2026, 10, 1, 8, 0),
+    updatedAt: DateTime(2026, 10, 1, 14, 15),
+  );
+
   final viewports = <String, Size>{
     'small mobile (320x480)': const Size(320, 480),
     'small mobile landscape (568x320)': const Size(568, 320),
@@ -279,53 +299,45 @@ void main() {
     });
   });
 
-  group('Pickup Details Screen - Live Lifecycle Simulator Buttons', () {
-    testWidgets('tapping Dispatch Crew transitions status to In Transit with SnackBar',
+  group('Pickup Details Screen - Clean UI & Live Status Banners (No Simulator)', () {
+    testWidgets('scheduled pickup renders clean timeline without any simulator or dispatch buttons',
         (tester) async {
       setViewport(tester, const Size(768, 1024));
       await tester.pumpWidget(buildDetailsApp(initialPickup: sampleScheduledPickup));
       await tester.pumpAndSettle();
 
-      final dispatchButton = find.text('Dispatch Crew');
-      expect(dispatchButton, findsOneWidget);
+      // Ensure simulator is removed
+      expect(find.text('Live Collection Testing & Simulator'), findsNothing);
+      expect(find.text('Dispatch Crew'), findsNothing);
+      expect(find.text('Complete Collection'), findsNothing);
 
-      await tester.ensureVisible(dispatchButton);
-      await tester.tap(dispatchButton);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-
-      // SnackBar is displayed
-      expect(find.text('Eco Crew #4 dispatched and en route to your address!'), findsOneWidget);
-
-      await tester.pumpAndSettle();
-
-      // UI updates to In Transit
-      expect(find.text('In Transit'), findsWidgets);
-      expect(find.text('Collection Crew is En Route'), findsOneWidget);
+      // Timeline is intact
+      expect(find.text('Request Created'), findsOneWidget);
+      expect(find.text('Pickup Scheduled'), findsOneWidget);
+      expect(find.text('Crew En Route'), findsOneWidget);
+      expect(find.text('Waste Collected'), findsOneWidget);
     });
 
-    testWidgets('tapping Complete Collection transitions status to Collected with SnackBar',
+    testWidgets('in transit pickup renders en route banner and crew assignment',
         (tester) async {
       setViewport(tester, const Size(768, 1024));
-      await tester.pumpWidget(buildDetailsApp(initialPickup: sampleScheduledPickup));
+      await tester.pumpWidget(buildDetailsApp(initialPickup: sampleInTransitPickup));
       await tester.pumpAndSettle();
 
-      final completeButton = find.text('Complete Collection');
-      expect(completeButton, findsOneWidget);
+      expect(find.text('In Transit'), findsWidgets);
+      expect(find.textContaining('Collection crew is en route · Assigned: North Eco Crew #4'), findsOneWidget);
+      expect(find.text('Live Collection Testing & Simulator'), findsNothing);
+    });
 
-      await tester.ensureVisible(completeButton);
-      await tester.tap(completeButton);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-
-      // SnackBar is displayed
-      expect(find.textContaining('Collection completed! 4.5 kg diverted'), findsOneWidget);
-
+    testWidgets('collected pickup renders diversion confirmation banner',
+        (tester) async {
+      setViewport(tester, const Size(768, 1024));
+      await tester.pumpWidget(buildDetailsApp(initialPickup: sampleCollectedPickup));
       await tester.pumpAndSettle();
 
-      // UI updates to Collected
       expect(find.text('Collected'), findsWidgets);
       expect(find.text('Collection completed · Materials weighed & diverted from landfill.'), findsOneWidget);
+      expect(find.text('Live Collection Testing & Simulator'), findsNothing);
     });
   });
 

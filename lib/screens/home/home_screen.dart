@@ -55,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     final uid = _authService.currentUser?.uid;
     if (uid != null && uid.isNotEmpty) {
+      _firestoreService.autoAdvancePickupLifecycle(uid);
       _firestoreService.checkAndGenerateUpcomingReminders(uid);
       _firestoreService.checkAndGenerateMilestones(uid);
     }
