@@ -214,7 +214,7 @@ class FirestoreService {
       updates['assignedTeam'] = assignedTeam;
     }
 
-    await col.doc(pickupId).update(updates);
+    await col.doc(pickupId).set(updates, SetOptions(merge: true));
 
     // Create real-time notification for the status change if user enabled status updates
     try {

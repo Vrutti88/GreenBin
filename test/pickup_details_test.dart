@@ -279,6 +279,56 @@ void main() {
     });
   });
 
+  group('Pickup Details Screen - Live Lifecycle Simulator Buttons', () {
+    testWidgets('tapping Dispatch Crew transitions status to In Transit with SnackBar',
+        (tester) async {
+      setViewport(tester, const Size(768, 1024));
+      await tester.pumpWidget(buildDetailsApp(initialPickup: sampleScheduledPickup));
+      await tester.pumpAndSettle();
+
+      final dispatchButton = find.text('Dispatch Crew');
+      expect(dispatchButton, findsOneWidget);
+
+      await tester.ensureVisible(dispatchButton);
+      await tester.tap(dispatchButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // SnackBar is displayed
+      expect(find.text('Eco Crew #4 dispatched and en route to your address!'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      // UI updates to In Transit
+      expect(find.text('In Transit'), findsWidgets);
+      expect(find.text('Collection Crew is En Route'), findsOneWidget);
+    });
+
+    testWidgets('tapping Complete Collection transitions status to Collected with SnackBar',
+        (tester) async {
+      setViewport(tester, const Size(768, 1024));
+      await tester.pumpWidget(buildDetailsApp(initialPickup: sampleScheduledPickup));
+      await tester.pumpAndSettle();
+
+      final completeButton = find.text('Complete Collection');
+      expect(completeButton, findsOneWidget);
+
+      await tester.ensureVisible(completeButton);
+      await tester.tap(completeButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // SnackBar is displayed
+      expect(find.textContaining('Collection completed! 4.5 kg diverted'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      // UI updates to Collected
+      expect(find.text('Collected'), findsWidgets);
+      expect(find.text('Collection completed · Materials weighed & diverted from landfill.'), findsOneWidget);
+    });
+  });
+
   // ===========================================================================
   // RESPONSIVE ADAPTATION: MOBILE, TABLET, DESKTOP & LANDSCAPE
   // ===========================================================================

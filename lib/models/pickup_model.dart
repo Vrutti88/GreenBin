@@ -93,7 +93,8 @@ enum PickupStatus {
       this == PickupStatus.collected || this == PickupStatus.completed;
 
   static PickupStatus fromString(String? value) {
-    switch (value?.toLowerCase()) {
+    final clean = value?.toLowerCase().replaceAll('_', ' ').replaceAll('-', ' ').trim();
+    switch (clean) {
       case 'scheduled':
       case 'pending':
       case 'confirmed':
@@ -102,7 +103,7 @@ enum PickupStatus {
       case 'completed':
         return PickupStatus.collected;
       case 'intransit':
-      case 'in_transit':
+      case 'in transit':
         return PickupStatus.inTransit;
       case 'cancelled':
         return PickupStatus.cancelled;
