@@ -43,6 +43,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     '12:00 PM - 2:00 PM',
     '2:00 PM - 4:00 PM',
     '4:00 PM - 6:00 PM',
+    '6:00 PM - 8:00 PM',
   ];
 
   late String _selectedCategory;

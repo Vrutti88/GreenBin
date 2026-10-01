@@ -72,7 +72,7 @@ void main() {
       expect(find.textContaining('3. Pickup Date'), findsOneWidget);
       expect(find.byType(DateSelector), findsOneWidget);
 
-      // Verify Field 4: Time Slot & the 5 Required Time Windows
+      // Verify Field 4: Time Slot & the Required Time Windows
       expect(find.textContaining('Preferred Time Slot'), findsOneWidget);
       expect(find.byType(TimeSlotSelector), findsOneWidget);
       expect(find.text('8:00 AM - 10:00 AM'), findsOneWidget);
@@ -80,6 +80,7 @@ void main() {
       expect(find.text('12:00 PM - 2:00 PM'), findsOneWidget);
       expect(find.text('2:00 PM - 4:00 PM'), findsOneWidget);
       expect(find.text('4:00 PM - 6:00 PM'), findsOneWidget);
+      expect(find.text('6:00 PM - 8:00 PM'), findsOneWidget);
 
       // Verify Field 5: Pickup Address
       expect(find.textContaining('4. Pickup Address'), findsOneWidget);
@@ -247,6 +248,14 @@ void main() {
       );
       expect(start3, DateTime(2026, 10, 1, 16, 0));
       expect(end3, DateTime(2026, 10, 1, 18, 0));
+
+      // Evening slot: 6:00 PM - 8:00 PM
+      final (start4, end4) = PreferencesService.parseSlotWindowStatic(
+        baseDate,
+        '6:00 PM - 8:00 PM',
+      );
+      expect(start4, DateTime(2026, 10, 1, 18, 0));
+      expect(end4, DateTime(2026, 10, 1, 20, 0));
     });
   });
 
