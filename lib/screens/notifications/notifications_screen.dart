@@ -59,7 +59,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     final uid = widget.initialUserId ?? _authService.currentUser?.uid;
     if (uid != null && uid.isNotEmpty) {
-      _firestoreService.autoAdvancePickupLifecycle(uid);
       _firestoreService.checkAndGenerateUpcomingReminders(uid).then((_) {
         if (mounted) {
           _firestoreService.checkAndGenerateMilestones(uid);

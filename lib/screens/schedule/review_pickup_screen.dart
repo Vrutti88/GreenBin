@@ -26,55 +26,92 @@ class _ReviewPickupScreenState extends State<ReviewPickupScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  PickupModel _getEffectivePickup(BuildContext context) {
-    if (widget.pickup != null) return widget.pickup!;
+  PickupModel? _getEffectivePickup(BuildContext context) {
+    if (widget.pickup != null) return widget.pickup;
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is PickupModel) return args;
+    return null;
+  }
 
-    // Fallback sample pickup if navigated directly or in test harness
-    return PickupModel(
-      id: 'GB-REV-2026',
-      userId: 'resident-user-1',
-      residentName: 'Green Resident',
-      residentPhone: '+1 (555) 019-2834',
-      category: 'Plastic',
-      subCategories: const [
-        'Beverage bottles (PET)',
-        'Milk & detergent jugs (HDPE)',
-      ],
-      pickupDate: DateTime.now().add(const Duration(days: 1)),
-      timeSlot: '10:00 AM - 12:00 PM',
-      street: '742 Evergreen Terrace',
-      city: 'Springfield Eco District',
-      landmark: 'Near Central Community Park',
-      postalCode: '97477',
-      notes: 'Bags placed near side gate for easy collection.',
-      status: PickupStatus.pending,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+  Widget _buildMissingPickupState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceVariantLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.assignment_late_outlined,
+                size: 36,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No Pickup Details to Review',
+              style: AppTextStyles.headlineSmall.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please complete the pickup scheduling form before reviewing your collection request.',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: PrimaryButton(
+                text: 'Go to Schedule Pickup',
+                icon: Icons.calendar_month_rounded,
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacementNamed(context, AppRoutes.schedule);
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Future<void> _handleConfirmPickup(PickupModel pickup) async {
+    if (_isLoading) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      String pickupId = pickup.id;
-      // If pickup has not been saved yet, save to Firestore
-      if (pickupId.isEmpty || pickupId == 'GB-REV-2026') {
-        pickupId = await _firestoreService.createPickup(
-          pickup.copyWith(
-            status: PickupStatus.scheduled,
-            updatedAt: DateTime.now(),
-          ),
-        );
-      }
+      // Ensure the pickup has empty ID so Firestore assigns a fresh document ID,
+      // and guaranteed status = Scheduled
+      final pickupToCreate = pickup.copyWith(
+        id: '',
+        status: PickupStatus.scheduled,
+        updatedAt: DateTime.now(),
+      );
 
-      final confirmedPickup = pickup.copyWith(
-        id: pickupId.isNotEmpty ? pickupId : 'GB-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      final pickupId = await _firestoreService.createPickup(pickupToCreate);
+
+      final confirmedPickup = pickupToCreate.copyWith(
+        id: pickupId,
         status: PickupStatus.scheduled,
       );
 
@@ -101,6 +138,16 @@ class _ReviewPickupScreenState extends State<ReviewPickupScreen> {
   @override
   Widget build(BuildContext context) {
     final pickup = _getEffectivePickup(context);
+    if (pickup == null) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: AppBar(
+          title: const Text('Review Pickup'),
+        ),
+        body: SafeArea(child: _buildMissingPickupState(context)),
+      );
+    }
+
     final categoryItem = WasteCategoryItem.findByNameOrId(pickup.category);
     final categoryColor = categoryItem?.color ?? AppColors.primary;
     final categoryIcon = categoryItem?.icon ?? Icons.recycling_rounded;

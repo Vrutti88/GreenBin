@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/pickup_model.dart';
+import '../../routes/app_routes.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -57,7 +58,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_resolvedInitialPickup == null) {
+    if (_resolvedInitialPickup == null && _resolvedPickupId.isEmpty) {
       if (widget.initialPickup != null) {
         _resolvedInitialPickup = widget.initialPickup;
         _resolvedPickupId = widget.initialPickup!.id;
@@ -71,33 +72,6 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
         } else if (widget.pickupId != null) {
           _resolvedPickupId = widget.pickupId!;
         }
-      }
-
-      // Default sample fallback if no arguments supplied (e.g. testing)
-      _resolvedInitialPickup ??= PickupModel(
-        id: _resolvedPickupId.isNotEmpty ? _resolvedPickupId : 'GB-DEMO-2026',
-        userId: 'current-user-demo',
-        residentName: 'Community Resident',
-        residentPhone: '+1 (555) 019-2834',
-        category: 'Plastic',
-        subCategories: const [
-          'Beverage bottles (PET)',
-          'Milk & detergent jugs (HDPE)',
-        ],
-        pickupDate: DateTime.now().add(const Duration(days: 2)),
-        timeSlot: '8:00 AM - 10:00 AM',
-        street: '100 Green View Road',
-        city: 'Springfield Eco Ward',
-        landmark: 'Near Solar Park Gate',
-        postalCode: '97477',
-        notes: 'Please ring bell upon arrival.',
-        status: PickupStatus.scheduled,
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-        updatedAt: DateTime.now().subtract(const Duration(hours: 4)),
-      );
-
-      if (_resolvedPickupId.isEmpty) {
-        _resolvedPickupId = _resolvedInitialPickup!.id;
       }
     }
   }
@@ -249,7 +223,13 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
           IconButton(
             icon: const Icon(Icons.close_rounded),
             tooltip: 'Close',
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, AppRoutes.pickups);
+              }
+            },
           ),
         ],
       ),
@@ -258,7 +238,8 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
           stream: stream,
           initialData: _resolvedInitialPickup,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
+            if (_resolvedPickupId.isNotEmpty &&
+                snapshot.connectionState == ConnectionState.waiting &&
                 _resolvedInitialPickup == null) {
               return const LoadingState(
                 message: 'Loading pickup details from Firestore...',
@@ -297,7 +278,16 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                         text: 'Back to My Pickups',
                         isFullWidth: false,
                         width: 200,
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          } else {
+                            Navigator.pushReplacementNamed(
+                              context,
+                              AppRoutes.pickups,
+                            );
+                          }
+                        },
                       ),
                     ],
                   ),

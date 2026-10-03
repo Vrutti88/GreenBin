@@ -16,36 +16,91 @@ class PickupConfirmationScreen extends StatelessWidget {
 
   const PickupConfirmationScreen({super.key, this.pickup});
 
-  PickupModel _getEffectivePickup(BuildContext context) {
-    if (pickup != null) return pickup!;
+  PickupModel? _getEffectivePickup(BuildContext context) {
+    if (pickup != null) return pickup;
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is PickupModel) return args;
+    return null;
+  }
 
-    // Fallback sample pickup for direct routes or testing
-    return PickupModel(
-      id: 'GB-94821',
-      userId: 'resident-demo-user',
-      residentName: 'Green Resident',
-      residentPhone: '+1 (555) 019-2834',
-      category: 'Plastic',
-      subCategories: const [
-        'Beverage bottles (PET)',
-        'Milk & detergent jugs (HDPE)',
-      ],
-      pickupDate: DateTime.now().add(const Duration(days: 1)),
-      timeSlot: '10:00 AM - 12:00 PM',
-      street: '742 Evergreen Terrace',
-      city: 'Springfield Eco District',
-      landmark: 'Near Central Community Park',
-      postalCode: '97477',
-      notes: 'Bags placed near side gate for easy collection.',
-      status: PickupStatus.confirmed,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+  Widget _buildMissingConfirmationState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceVariantLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 36,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No Confirmation Available',
+              style: AppTextStyles.headlineSmall.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No active pickup confirmation was found. You can view your scheduled collections in My Pickups.',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SecondaryButton(
+                  text: 'Back to Home',
+                  icon: Icons.home_rounded,
+                  isFullWidth: false,
+                  width: 160,
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRoutes.home,
+                      (route) => false,
+                    );
+                  },
+                ),
+                const SizedBox(width: 12),
+                PrimaryButton(
+                  text: 'View My Pickups',
+                  icon: Icons.list_alt_rounded,
+                  isFullWidth: false,
+                  width: 180,
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRoutes.pickups,
+                      (route) => route.isFirst,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   void _copyPickupIdToClipboard(BuildContext context, String pickupId) {
+    if (pickupId.isEmpty) return;
     Clipboard.setData(ClipboardData(text: pickupId));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -59,14 +114,21 @@ class PickupConfirmationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectivePickup = _getEffectivePickup(context);
+    if (effectivePickup == null) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: AppBar(
+          title: const Text('Pickup Confirmation'),
+        ),
+        body: SafeArea(child: _buildMissingConfirmationState(context)),
+      );
+    }
     final categoryItem = WasteCategoryItem.findByNameOrId(effectivePickup.category);
     final categoryColor = categoryItem?.color ?? AppColors.primary;
     final categoryIcon = categoryItem?.icon ?? Icons.recycling_rounded;
     final formattedDate =
         DateFormat('EEEE, MMMM d, yyyy').format(effectivePickup.pickupDate);
-    final displayId = effectivePickup.id.isNotEmpty
-        ? effectivePickup.id
-        : 'GB-94821';
+    final displayId = effectivePickup.id;
 
     return PopScope(
       canPop: false,
@@ -491,7 +553,7 @@ class PickupConfirmationScreen extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                '#$displayId',
+                                displayId.isNotEmpty ? '#$displayId' : 'Confirmed',
                                 style: AppTextStyles.labelLarge.copyWith(
                                   fontWeight: FontWeight.w800,
                                   color: AppColors.primary,

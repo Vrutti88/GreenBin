@@ -462,14 +462,6 @@ class FirestoreService {
     }
   }
 
-  /// Automatically inspects active pickups and advances lifecycle status in-memory for residents.
-  /// (Server-side status advancement to Collected/In Transit is strictly reserved for collectors under Firestore Security Rules).
-  Future<void> autoAdvancePickupLifecycle(String userId) async {
-    // Resident clients use evaluateAndAutoAdvancePickup to dynamically render
-    // updated lifecycle status without violating strict Firestore security rules.
-    return;
-  }
-
   /// Cancel a scheduled pickup request
   Future<void> cancelPickup(String pickupId, {String? reason}) async {
     final col = _pickupsCol;

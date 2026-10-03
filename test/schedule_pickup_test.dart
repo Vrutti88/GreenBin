@@ -91,7 +91,7 @@ void main() {
           findsOneWidget);
 
       // Verify Action Button
-      expect(find.text('Confirm & Schedule Pickup'), findsOneWidget);
+      expect(find.text('Review Pickup Details'), findsOneWidget);
     });
 
     testWidgets('pre-selects initialCategory passed into the screen',
@@ -115,7 +115,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Submit without entering street address
-      final submitBtn = find.text('Confirm & Schedule Pickup');
+      final submitBtn = find.text('Review Pickup Details');
       await tester.drag(
           find.byType(SingleChildScrollView).first, const Offset(0, -400));
       await tester.pumpAndSettle();
@@ -144,7 +144,7 @@ void main() {
 
   group('Schedule Pickup Screen - Successful Submission Flow', () {
     testWidgets(
-        'valid form submission saves pickup and shows confirmation dialog',
+        'valid form submission validates in-memory and navigates to Review Pickup Screen',
         (tester) async {
       setViewport(tester, const Size(768, 1024));
       await tester.pumpWidget(buildScheduleApp(initialCategory: 'Paper & Cardboard'));
@@ -166,19 +166,20 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Tap Confirm & Schedule Pickup
-      final submitBtn = find.text('Confirm & Schedule Pickup');
+      // Tap Review Pickup Details
+      final submitBtn = find.text('Review Pickup Details');
       await tester.drag(
           find.byType(SingleChildScrollView).first, const Offset(0, -400));
       await tester.pumpAndSettle();
       await tester.tap(submitBtn);
       await tester.pumpAndSettle();
 
-      // Confirmation Dialog should appear
-      expect(find.text('Pickup Scheduled!'), findsOneWidget);
+      // Review Screen should appear with entered details
+      expect(find.text('Review Pickup'), findsOneWidget);
       expect(find.text('Paper & Cardboard'), findsWidgets);
       expect(find.text('42 Elm Street, Maple Residency, Apt 3B'), findsWidgets);
-      expect(find.text('View in My Pickups'), findsOneWidget);
+      expect(find.text('Confirm Pickup'), findsOneWidget);
+      expect(find.text('Edit Details'), findsOneWidget);
     });
   });
 
@@ -191,7 +192,7 @@ void main() {
       expect(tester.takeException(), isNull);
       // Summary card is only present on desktop
       expect(find.text('Pickup Summary'), findsNothing);
-      expect(find.text('Confirm & Schedule Pickup'), findsOneWidget);
+      expect(find.text('Review Pickup Details'), findsOneWidget);
     });
 
     testWidgets('desktop (>=1000px) uses balanced two-column layout with summary card',
