@@ -110,25 +110,32 @@ service cloud.firestore {
                     && request.resource.data.createdAt is timestamp;
 
       // 3. UPDATE:
-      // Case A: Collectors and Admins can update pickup status and assignment
-      // Case B: Residents can update their own pickup status through its lifecycle (Scheduled -> In Transit -> Collected, or Cancelled), notes, and assignedTeam
+      // Case A: Collectors can update pickup status (e.g. to "Collected") and assignment
+      // Collectors cannot alter the resident's core pickup information (userId, wasteCategory, address, date)
+      // Case B: Residents can update their own scheduled pickup (e.g., notes, or cancel)
+      // Residents CANNOT modify another resident's pickup
+      // Residents CANNOT change another user's pickup status
+      // Residents CANNOT mark pickups as "Collected"
       allow update: if isAuthenticated() && (
         // Case A: Collector status update
         (isCollector() || isAdmin()) && (
           request.resource.data.userId == resource.data.userId &&
           request.resource.data.wasteCategory == resource.data.wasteCategory &&
           request.resource.data.pickupDate == resource.data.pickupDate &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedTeam', 'updatedAt', 'notes', 'cancellationReason'])
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedTeam', 'updatedAt', 'notes'])
         )
         ||
-        // Case B: Resident self-management and lifecycle transitions
+        // Case B: Resident self-management (cancel or notes update only)
         (
           resource.data.userId == request.auth.uid &&
           request.resource.data.userId == resource.data.userId &&
           request.resource.data.wasteCategory == resource.data.wasteCategory &&
           request.resource.data.pickupDate == resource.data.pickupDate &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedTeam', 'updatedAt', 'notes', 'cancellationReason']) &&
-          request.resource.data.status in ['Scheduled', 'In Transit', 'Collected', 'Cancelled']
+          // Cannot change status to "Collected", only allow cancelling from "Scheduled"
+          (
+            request.resource.data.status == resource.data.status ||
+            (resource.data.status == 'Scheduled' && request.resource.data.status == 'Cancelled')
+          )
         )
       );
 

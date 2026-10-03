@@ -53,6 +53,9 @@ class TimeSlotSelector extends StatelessWidget {
             return Tooltip(
               message: isDisabled ? '$slot has already passed' : 'Select $slot',
               child: InkWell(
+                mouseCursor: isDisabled
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
                 onTap: isDisabled ? null : () => onSlotSelected(slot),
                 borderRadius: BorderRadius.circular(12),
                 child: AnimatedContainer(

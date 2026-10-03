@@ -501,6 +501,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     children: List.generate(
                       _slides.length,
                       (index) => InkWell(
+                        mouseCursor: SystemMouseCursors.click,
                         onTap: () => setState(() => _currentPage = index),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),

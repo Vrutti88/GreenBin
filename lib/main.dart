@@ -32,6 +32,13 @@ class GreenBinApp extends StatelessWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
       initialRoute: AppRoutes.splash,
+      onGenerateInitialRoutes: (initialRoute) {
+        return [
+          AppRoutes.onGenerateRoute(
+            const RouteSettings(name: AppRoutes.splash),
+          ),
+        ];
+      },
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }

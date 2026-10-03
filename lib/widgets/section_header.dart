@@ -59,6 +59,7 @@ class SectionHeader extends StatelessWidget {
             TextButton(
               onPressed: onActionTap,
               style: TextButton.styleFrom(
+                enabledMouseCursor: SystemMouseCursors.click,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 minimumSize: const Size(48, 36),
               ),

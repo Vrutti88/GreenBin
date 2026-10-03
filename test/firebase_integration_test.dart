@@ -299,7 +299,8 @@ void main() {
       expect(find.text('vrutti@greenbin.eco'), findsOneWidget);
       expect(find.text('100 Green View Road'), findsOneWidget);
       expect(find.text('10'), findsOneWidget); // totalPickups
-      expect(find.text('45.0 kg'), findsOneWidget); // kgRecycled
+      expect(find.text('Level 2'), findsOneWidget); // zeroWasteLevel
+      expect(find.text('Zero-Waste Rank'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

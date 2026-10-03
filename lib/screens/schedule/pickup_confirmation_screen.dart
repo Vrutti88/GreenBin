@@ -483,6 +483,7 @@ class PickupConfirmationScreen extends StatelessWidget {
                         ),
                       ),
                       InkWell(
+                        mouseCursor: SystemMouseCursors.click,
                         onTap: () => _copyPickupIdToClipboard(context, displayId),
                         borderRadius: BorderRadius.circular(4),
                         child: Row(

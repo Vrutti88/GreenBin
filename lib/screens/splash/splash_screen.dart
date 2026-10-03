@@ -17,7 +17,7 @@ class SplashScreen extends StatefulWidget {
 
   const SplashScreen({
     super.key,
-    this.delay = const Duration(milliseconds: 1400),
+    this.delay = const Duration(milliseconds: 2500),
     this.autoNavigate = true,
   });
 

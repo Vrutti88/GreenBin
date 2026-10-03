@@ -9,6 +9,7 @@ class InteractiveBounce extends StatefulWidget {
   final double scaleFactor;
   final Duration duration;
   final HitTestBehavior behavior;
+  final MouseCursor? mouseCursor;
 
   const InteractiveBounce({
     super.key,
@@ -17,6 +18,7 @@ class InteractiveBounce extends StatefulWidget {
     this.scaleFactor = 0.975,
     this.duration = const Duration(milliseconds: 110),
     this.behavior = HitTestBehavior.opaque,
+    this.mouseCursor,
   });
 
   @override
@@ -32,17 +34,20 @@ class _InteractiveBounceState extends State<InteractiveBounce> {
       return widget.child;
     }
 
-    return GestureDetector(
-      behavior: widget.behavior,
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? widget.scaleFactor : 1.0,
-        duration: widget.duration,
-        curve: Curves.easeOutCubic,
-        child: widget.child,
+    return MouseRegion(
+      cursor: widget.mouseCursor ?? SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: widget.behavior,
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? widget.scaleFactor : 1.0,
+          duration: widget.duration,
+          curve: Curves.easeOutCubic,
+          child: widget.child,
+        ),
       ),
     );
   }

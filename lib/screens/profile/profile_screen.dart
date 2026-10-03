@@ -970,17 +970,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '0–5: Eco Explorer 🌱 · 6–10: Eco Champion 🌿 · 10+: Eco Master 🏆',
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.textSecondary.withValues(alpha: 0.75),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
                         ],
                       ),
                     ),
@@ -1103,6 +1092,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required VoidCallback onTap,
   }) {
     return ListTile(
+      mouseCursor: SystemMouseCursors.click,
       leading: Icon(icon, color: AppColors.primary, size: 22),
       title: Text(
         title,

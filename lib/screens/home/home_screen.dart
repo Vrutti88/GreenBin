@@ -606,8 +606,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildUpcomingPickupSpotlight(upcomingPickups),
-                                    const SizedBox(height: 24),
-                                    _buildCommunityImpactCard(),
                                   ],
                                 ),
                               ),
@@ -709,6 +707,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 12),
         // Resident Avatar Icon Button
         InkWell(
+          mouseCursor: SystemMouseCursors.click,
           onTap: () => setState(() => _activeTab = HomeNavTab.profile),
           borderRadius: BorderRadius.circular(24),
           child: Tooltip(
@@ -1664,137 +1663,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // =========================================================================
-  // 7. COMMUNITY IMPACT & TIPS CARD (DESKTOP / WIDE SCREEN COMPANION)
-  // =========================================================================
-  Widget _buildCommunityImpactCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 3.5,
-              width: double.infinity,
-              color: AppColors.primary,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.eco_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Community Eco Impact',
-                        style: AppTextStyles.titleMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                      Text(
-                        'Oakridge Ward Zero-Waste Drive',
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '1,240+ kg diverted this month!',
-              style: AppTextStyles.titleLarge.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Our community has prevented ~3.8 metric tons of CO2 emissions this month through prompt recycling.',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: AppColors.tertiary,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Tip: Rinsing containers prevents pests and improves recycling quality.',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: () => setState(() => _activeTab = HomeNavTab.guide),
-                icon: const Icon(Icons.menu_book_rounded, size: 16),
-                label: const Text('Read Recycling Guide'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  ),
-),
-);
-  }
+
 
   // =========================================================================
   // 8. PICKUP DETAILS BOTTOM SHEET MODAL

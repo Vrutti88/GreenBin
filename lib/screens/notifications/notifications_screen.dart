@@ -440,6 +440,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           onTap: () {
             _markAsRead(notification);
             if (notification.pickupId != null &&
@@ -564,6 +565,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           notification.pickupId!.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         InkWell(
+                          mouseCursor: SystemMouseCursors.click,
                           onTap: () {
                             _markAsRead(notification);
                             _navigateToPickupDetails(notification.pickupId!);

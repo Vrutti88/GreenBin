@@ -72,6 +72,11 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return ResponsiveBuilder(
       builder: (context, constraints, deviceType) {
+        // Guard against transient zero/1px constraints during hot reload or web resizing
+        if (constraints.maxWidth <= 1.0 || constraints.maxHeight <= 1.0) {
+          return const SizedBox.shrink();
+        }
+
         // Landscape check on smaller heights: switch to Rail to conserve vertical space
         final isCompactHeight = MediaQuery.sizeOf(context).height < 500;
         final isDesktop = deviceType == DeviceScreenType.desktop;
@@ -123,6 +128,22 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
                 );
               }).toList(),
             ),
+            floatingActionButton: floatingActionButton,
+          );
+        }
+
+        // Guard against horizontal overflow when width is smaller than the required fixed nav panel
+        final requiredNavWidth = (isDesktop ? 270.0 : 80.0) + 1.0;
+        if (constraints.maxWidth < requiredNavWidth) {
+          return Scaffold(
+            appBar: title != null
+                ? AppBar(
+                    title: Text(title!),
+                    leading: leading,
+                    actions: actions,
+                  )
+                : null,
+            body: SafeArea(child: body),
             floatingActionButton: floatingActionButton,
           );
         }
@@ -343,6 +364,7 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: InkWell(
+                            mouseCursor: SystemMouseCursors.click,
                             onTap: () {
                               if (d.onTap != null) {
                                 d.onTap!();

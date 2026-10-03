@@ -148,13 +148,9 @@ class FirestoreService {
     return docRef.id;
   }
 
-  // Sets to track pickups synced in this session to prevent redundant writes
-  final Set<String> _syncedCollectedIds = {};
-  final Set<String> _syncedInTransitIds = {};
 
   /// Dynamically evaluates whether a pickup's scheduled window has started or passed,
-  /// returns the updated model, and asynchronously triggers background sync to Firestore
-  /// and notification creation.
+  /// and returns the updated model with the appropriate lifecycle status for UI display.
   PickupModel evaluateAndAutoAdvancePickup(PickupModel pickup, [DateTime? referenceTime]) {
     final now = referenceTime ?? DateTime.now();
     if (pickup.status == PickupStatus.collected ||
@@ -169,24 +165,12 @@ class FirestoreService {
     );
 
     if (now.isAfter(end)) {
-      if (!_syncedCollectedIds.contains(pickup.id)) {
-        _syncedCollectedIds.add(pickup.id);
-        markPickupCollected(pickup.id);
-      }
       return pickup.copyWith(
         status: PickupStatus.collected,
         updatedAt: now,
       );
     } else if (now.isAfter(start)) {
       if (pickup.status != PickupStatus.inTransit) {
-        if (!_syncedInTransitIds.contains(pickup.id)) {
-          _syncedInTransitIds.add(pickup.id);
-          updatePickupStatus(
-            pickupId: pickup.id,
-            status: PickupStatus.inTransit,
-            assignedTeam: pickup.assignedTeam ?? 'North Eco Crew #4',
-          );
-        }
         return pickup.copyWith(
           status: PickupStatus.inTransit,
           assignedTeam: pickup.assignedTeam ?? 'North Eco Crew #4',
@@ -311,9 +295,13 @@ class FirestoreService {
     }
 
     try {
-      await col.doc(pickupId).set(updates, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('Failed to set pickup status: $e');
+      await col.doc(pickupId).update(updates);
+    } catch (_) {
+      try {
+        await col.doc(pickupId).set(updates, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Failed to set pickup status: $e');
+      }
     }
 
     // Always attempt notification generation for the resident
@@ -446,40 +434,12 @@ class FirestoreService {
     }
   }
 
-  /// Automatically inspects all active pickups for a resident and advances any whose time window has arrived.
+  /// Automatically inspects active pickups and advances lifecycle status in-memory for residents.
+  /// (Server-side status advancement to Collected/In Transit is strictly reserved for collectors under Firestore Security Rules).
   Future<void> autoAdvancePickupLifecycle(String userId) async {
-    final col = _pickupsCol;
-    if (col == null || userId.isEmpty) return;
-
-    try {
-      final snapshot = await col
-          .where('userId', isEqualTo: userId)
-          .where('status', whereIn: const ['Scheduled', 'In Transit'])
-          .get();
-
-      final now = DateTime.now();
-      for (final doc in snapshot.docs) {
-        final pickup = PickupModel.fromFirestore(doc);
-        final (start, end) = PreferencesService.parseSlotWindowStatic(
-          pickup.pickupDate,
-          pickup.timeSlot,
-        );
-
-        if (now.isAfter(end)) {
-          await markPickupCollected(pickup.id);
-        } else if (now.isAfter(start)) {
-          if (pickup.status != PickupStatus.inTransit) {
-            await updatePickupStatus(
-              pickupId: pickup.id,
-              status: PickupStatus.inTransit,
-              assignedTeam: 'North Eco Crew #4',
-            );
-          }
-        }
-      }
-    } catch (_) {
-      // Safe fallback
-    }
+    // Resident clients use evaluateAndAutoAdvancePickup to dynamically render
+    // updated lifecycle status without violating strict Firestore security rules.
+    return;
   }
 
   /// Cancel a scheduled pickup request

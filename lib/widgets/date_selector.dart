@@ -71,6 +71,7 @@ class DateSelector extends StatelessWidget {
           const SizedBox(height: 6),
         ],
         InkWell(
+          mouseCursor: SystemMouseCursors.click,
           onTap: () => _pickDate(context),
           borderRadius: BorderRadius.circular(12),
           child: Container(

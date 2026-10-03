@@ -46,6 +46,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
           elevation: 0,
@@ -59,6 +61,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -68,6 +72,27 @@ class AppTheme {
           ),
           textStyle: AppTextStyles.labelLarge.copyWith(color: AppColors.primary),
         ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        mouseCursor: WidgetStateMouseCursor.clickable,
+      ),
+      switchTheme: const SwitchThemeData(
+        mouseCursor: WidgetStateMouseCursor.clickable,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        mouseCursor: WidgetStateMouseCursor.clickable,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -201,6 +226,39 @@ class AppTheme {
           side: const BorderSide(color: AppColors.borderDark, width: 1),
         ),
         margin: EdgeInsets.zero,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          enabledMouseCursor: SystemMouseCursors.click,
+          disabledMouseCursor: SystemMouseCursors.basic,
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        mouseCursor: WidgetStateMouseCursor.clickable,
+      ),
+      switchTheme: const SwitchThemeData(
+        mouseCursor: WidgetStateMouseCursor.clickable,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        mouseCursor: WidgetStateMouseCursor.clickable,
       ),
       navigationBarTheme: const NavigationBarThemeData(
         backgroundColor: AppColors.surfaceDark,

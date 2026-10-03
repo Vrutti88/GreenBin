@@ -187,8 +187,6 @@ void main() {
           // Desktop uses persistent Sidebar
           expect(find.text('GreenBin'), findsOneWidget);
           expect(find.text('MENU'), findsOneWidget);
-          // Multi-column companion
-          expect(find.text('Community Eco Impact'), findsOneWidget);
         } else if (isCompactHeight || isLandscape) {
           // Mobile Landscape or Tablet Landscape uses NavigationRail
           expect(find.byType(NavigationRail), findsOneWidget);

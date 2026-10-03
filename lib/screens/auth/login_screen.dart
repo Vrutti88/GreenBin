@@ -272,18 +272,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 "Don't have an account? ",
                                 style: AppTextStyles.bodyMedium,
                               ),
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.pushReplacementNamed(
-                                    context,
-                                    AppRoutes.register,
-                                  );
-                                },
-                                child: Text(
-                                  'Sign Up',
-                                  style: AppTextStyles.labelLarge.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w800,
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushReplacementNamed(
+                                      context,
+                                      AppRoutes.register,
+                                    );
+                                  },
+                                  child: Text(
+                                    'Sign Up',
+                                    style: AppTextStyles.labelLarge.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),

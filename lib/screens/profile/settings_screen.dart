@@ -491,6 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     return SwitchListTile(
+      mouseCursor: SystemMouseCursors.click,
       value: value,
       onChanged: onChanged,
       activeTrackColor: AppColors.primaryContainer,

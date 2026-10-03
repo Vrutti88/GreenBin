@@ -312,18 +312,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 'Already have an account? ',
                                 style: AppTextStyles.bodyMedium,
                               ),
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.pushReplacementNamed(
-                                    context,
-                                    AppRoutes.login,
-                                  );
-                                },
-                                child: Text(
-                                  'Log In',
-                                  style: AppTextStyles.labelLarge.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w800,
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushReplacementNamed(
+                                      context,
+                                      AppRoutes.login,
+                                    );
+                                  },
+                                  child: Text(
+                                    'Log In',
+                                    style: AppTextStyles.labelLarge.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),

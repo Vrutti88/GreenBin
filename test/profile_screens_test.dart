@@ -401,11 +401,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Contact Eco Support'), findsWidgets);
-      expect(find.text('support@greenbin.eco'), findsOneWidget);
-      expect(find.text('+1 (800) 555-GREEN'), findsOneWidget);
+      expect(find.text('Send In-App Support Ticket'), findsOneWidget);
     });
 
-    testWidgets('interacts with Eco Support dialog: copy channels and submit ticket',
+    testWidgets('interacts with Eco Support dialog: submit ticket',
         (tester) async {
       setViewport(tester, const Size(700, 1400));
       await tester.pumpWidget(wrapWithApp(const HelpFaqScreen()));
@@ -417,16 +416,8 @@ void main() {
       await tester.tap(supportBtn);
       await tester.pumpAndSettle();
 
-      // Verify contact options and actions
-      expect(find.text('Email Eco Support'), findsOneWidget);
-      expect(find.text('Toll-Free Hotline'), findsOneWidget);
+      // Verify in-app ticket form
       expect(find.text('Send In-App Support Ticket'), findsOneWidget);
-
-      // Tap copy email button
-      final copyEmailBtn = find.widgetWithIcon(IconButton, Icons.copy_rounded).first;
-      expect(copyEmailBtn, findsOneWidget);
-      await tester.tap(copyEmailBtn);
-      await tester.pumpAndSettle();
 
       // Fill and submit support inquiry form
       final subjectField = find.widgetWithText(TextFormField, 'Subject');
