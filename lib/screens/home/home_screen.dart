@@ -56,8 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final uid = _authService.currentUser?.uid;
     if (uid != null && uid.isNotEmpty) {
       _firestoreService.autoAdvancePickupLifecycle(uid);
-      _firestoreService.checkAndGenerateUpcomingReminders(uid);
-      _firestoreService.checkAndGenerateMilestones(uid);
+      _firestoreService.checkAndGenerateUpcomingReminders(uid).then((_) {
+        if (mounted) {
+          _firestoreService.checkAndGenerateMilestones(uid);
+        }
+      });
     }
   }
 
@@ -566,83 +569,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // 4. Responsive Content Layout (Categories, Upcoming, Recent)
+                    // 4. Content Layout: Recycling Categories with Recent Pickups below
                     AppFadeSlide(
                       delay: const Duration(milliseconds: 180),
                       child: ResponsiveBuilder(
-                      builder: (context, constraints, deviceType) {
-                        final isDesktop = deviceType == DeviceScreenType.desktop ||
-                            context.screenWidth >= 1000;
-                        final isLandscape =
-                            MediaQuery.orientationOf(context) == Orientation.landscape;
-                        final isMultiColumn = isDesktop ||
-                            (isLandscape && constraints.maxWidth >= 600) ||
-                            constraints.maxWidth >= 850;
-
-                        if (isMultiColumn) {
-                          // ==========================================
-                          // DESKTOP & WIDE LANDSCAPE: Multi-Column Area
-                          // Left: Category Shortcuts + Recent Pickups
-                          // Right: Upcoming Pickup Spotlight + Eco Impact
-                          // ==========================================
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildCategoriesSection(deviceType),
-                                    const SizedBox(height: 32),
-                                    _buildRecentPickupsSection(completedPickups),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 28),
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildUpcomingPickupSpotlight(upcomingPickups),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        } else if (deviceType == DeviceScreenType.tablet) {
-                          // ==========================================
-                          // TABLET PORTRAIT: Two-Column Sections
-                          // ==========================================
+                        builder: (context, constraints, deviceType) {
+                          final spacing =
+                              deviceType == DeviceScreenType.mobile ? 28.0 : 32.0;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildUpcomingPickupSpotlight(upcomingPickups),
-                              const SizedBox(height: 32),
                               _buildCategoriesSection(deviceType),
-                              const SizedBox(height: 32),
+                              SizedBox(height: spacing),
                               _buildRecentPickupsSection(completedPickups),
                             ],
                           );
-                        } else {
-                          // ==========================================
-                          // MOBILE: Single-Column Dashboard
-                          // ==========================================
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildUpcomingPickupSpotlight(upcomingPickups),
-                              const SizedBox(height: 28),
-                              _buildCategoriesSection(deviceType),
-                              const SizedBox(height: 28),
-                              _buildRecentPickupsSection(completedPickups),
-                            ],
-                          );
-                        }
-                      },
+                        },
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 80), // Padding for FAB
                   ],
                 ),
@@ -1027,12 +971,13 @@ class _HomeScreenState extends State<HomeScreen> {
         final cardWidth = constraints.maxWidth;
         final cardHeight = constraints.maxHeight;
         final bool showBadge = cardWidth >= 165;
-        final double illustrationSize = cardWidth < 140
-            ? 30.0
-            : (cardWidth < 180 ? 34.0 : 40.0);
 
         return InteractiveBounce(
           onTap: onTap,
+          hoverLift: 6.0,
+          hoverScale: 1.015,
+          hoverShadowColor: color,
+          borderRadius: 16.0,
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.surfaceLight,
@@ -1072,14 +1017,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Top Row: StatIllustration on left & Contextual Status Badge on right
+                          // Top Row: Metric Icon on left & Contextual Status Badge on right
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              StatIllustration(
-                                type: illustrationType,
-                                size: illustrationSize,
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: color.withValues(alpha: 0.22),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Icon(
+                                  icon,
+                                  color: color,
+                                  size: cardWidth < 140 ? 16 : 18,
+                                ),
                               ),
                               if (showBadge)
                                 Flexible(
@@ -1127,36 +1084,51 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
 
-                          // Middle: Prominent Hero Metric & Category Label
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                          // Middle: Prominent Hero Metric on Left & Thematic Scene Graphic on Right
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  value,
-                                  style: AppTextStyles.headlineSmall.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
-                                    letterSpacing: -0.5,
-                                    fontSize: cardWidth < 130 ? 18 : 22,
-                                  ),
-                                  maxLines: 1,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        value,
+                                        style: AppTextStyles.headlineSmall.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.textPrimary,
+                                          letterSpacing: -0.5,
+                                          fontSize: cardWidth < 130 ? 18 : 22,
+                                        ),
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      label,
+                                      style: AppTextStyles.labelSmall.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 1),
-                              Text(
-                                label,
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11,
+                              if (cardWidth >= 125) ...[
+                                const SizedBox(width: 8),
+                                StatSceneGraphic(
+                                  type: illustrationType,
+                                  size: cardWidth < 165 ? 42.0 : 52.0,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              ],
                             ],
                           ),
 
@@ -1206,310 +1178,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =========================================================================
-  // 4. UPCOMING PICKUP SPOTLIGHT SECTION
-  // =========================================================================
-  Widget _buildUpcomingPickupSpotlight(List<PickupModel> upcomingPickups) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(
-          title: 'Upcoming Pickup',
-          actionText: upcomingPickups.isNotEmpty ? 'View All' : null,
-          onActionTap: upcomingPickups.isNotEmpty
-              ? () => setState(() => _activeTab = HomeNavTab.pickups)
-              : null,
-        ),
-        const SizedBox(height: 12),
-        if (upcomingPickups.isEmpty)
-          _buildEmptyUpcomingCard()
-        else
-          _buildSpotlightCard(upcomingPickups.first, upcomingPickups.length),
-      ],
-    );
-  }
-
-  Widget _buildSpotlightCard(PickupModel pickup, int totalUpcoming) {
-    final dateFormat = DateFormat('EEEE, MMM d, yyyy');
-    final formattedDate = dateFormat.format(pickup.pickupDate);
-
-    IconData categoryIcon = Icons.recycling_rounded;
-    Color categoryColor = AppColors.primary;
-    for (final cat in WasteCategoryItem.defaultCategories) {
-      if (cat.name.toLowerCase() == pickup.category.toLowerCase() ||
-          cat.id.toLowerCase() == pickup.category.toLowerCase()) {
-        categoryIcon = cat.icon;
-        categoryColor = cat.color;
-        break;
-      }
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 3.5,
-              width: double.infinity,
-              color: categoryColor,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Row: Category + Status Chip
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(categoryIcon, color: categoryColor, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pickup.category,
-                        style: AppTextStyles.titleMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        pickup.subCategories.isNotEmpty
-                            ? pickup.subCategories.join(', ')
-                            : 'Scheduled Recyclable Pickup',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                StatusChip(status: pickup.status),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
-
-            // Date & Time Window Container
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariantLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_month_rounded,
-                    color: AppColors.primary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          formattedDate,
-                          style: AppTextStyles.labelLarge.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.access_time_rounded,
-                              size: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                pickup.timeSlot,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Pickup Address
-            Row(
-              children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 16,
-                  color: AppColors.textMuted,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    pickup.fullAddress,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Action Buttons
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _showPickupDetailsModal(context, pickup),
-                  icon: const Icon(Icons.info_outline_rounded, size: 18),
-                  label: const Text('View Details'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                if (totalUpcoming > 1)
-                  TextButton(
-                    onPressed: () => setState(() => _activeTab = HomeNavTab.pickups),
-                    child: Text(
-                      '+${totalUpcoming - 1} more scheduled',
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ],
-  ),
-),
-);
-  }
-
-  Widget _buildEmptyUpcomingCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.calendar_today_rounded,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'No pickups scheduled',
-                        style: AppTextStyles.titleMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Got recyclable items ready? Book a free doorstep pickup.',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            PrimaryButton(
-              text: 'Schedule a Pickup',
-              icon: Icons.add_rounded,
-              height: 44,
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.schedule);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================================
-  // 5. WASTE CATEGORY SHORTCUTS SECTION
+  // 4. WASTE CATEGORY SHORTCUTS SECTION
   // =========================================================================
   Widget _buildCategoriesSection(DeviceScreenType deviceType) {
     return Column(
@@ -1528,7 +1197,10 @@ class _HomeScreenState extends State<HomeScreen> {
             final double childAspectRatio;
             final bool isCompact = width < 450;
 
-            if (width >= 600) {
+            if (width >= 900) {
+              crossAxisCount = 5;
+              childAspectRatio = 1.15;
+            } else if (width >= 600) {
               crossAxisCount = 3;
               childAspectRatio = 1.25;
             } else if (width >= 400) {
@@ -1572,7 +1244,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =========================================================================
-  // 6. RECENT PICKUPS SECTION
+  // 5. RECENT PICKUPS SECTION
   // =========================================================================
   Widget _buildRecentPickupsSection(List<PickupModel> completedPickups) {
     return Column(

@@ -118,6 +118,34 @@ void main() {
       expect(find.text('Pickup Confirmed'), findsOneWidget);
     });
 
+    testWidgets('renders dedicated morning pickup reminder: Reminder: Someone Coming to Pickup',
+        (tester) async {
+      setViewport(tester, const Size(390, 844));
+      final morningReminder = NotificationModel(
+        id: 'test-morning-reminder',
+        userId: 'user-resident-1',
+        pickupId: 'GB-TEST-1005',
+        type: NotificationType.pickupReminder,
+        title: 'Reminder: Someone Coming to Pickup',
+        message:
+            'Reminder: An Eco Collector is coming to pick up your Plastic recyclables this morning (8:00 AM - 10:00 AM). Please ensure your bins are placed outside and accessible.',
+        timestamp: DateTime(2026, 10, 2, 8, 0),
+        isRead: false,
+        category: 'Plastic',
+      );
+      await tester.pumpWidget(buildNotificationsApp(
+        initialNotifications: [morningReminder],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reminder: Someone Coming to Pickup'), findsOneWidget);
+      expect(
+        find.textContaining('An Eco Collector is coming to pick up your Plastic recyclables this morning'),
+        findsOneWidget,
+      );
+      expect(find.text('Pickup Reminder'), findsOneWidget);
+    });
+
     testWidgets('renders filter chips: All, Unread, Pickups, Reminders',
         (tester) async {
       setViewport(tester, const Size(390, 844));
@@ -128,6 +156,58 @@ void main() {
       expect(find.text('Unread'), findsOneWidget);
       expect(find.text('Pickups'), findsOneWidget);
       expect(find.text('Reminders'), findsOneWidget);
+    });
+
+    testWidgets('deduplicates identical notifications and excludes diverted notifications',
+        (tester) async {
+      setViewport(tester, const Size(390, 844));
+      final duplicateNotifications = [
+        NotificationModel(
+          id: 'dup-1',
+          userId: 'user-resident-1',
+          type: NotificationType.milestone,
+          title: 'Milestone: First Pickup Completed!',
+          message:
+              'Congratulations on completing your first GreenBin recyclable pickup! You are taking real action towards a zero-waste neighborhood.',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          isRead: false,
+          category: 'Eco Milestone',
+        ),
+        NotificationModel(
+          id: 'dup-2',
+          userId: 'user-resident-1',
+          type: NotificationType.milestone,
+          title: 'Milestone: First Pickup Completed!',
+          message:
+              'Congratulations on completing your first GreenBin recyclable pickup! You are taking real action towards a zero-waste neighborhood.',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          isRead: false,
+          category: 'Eco Milestone',
+        ),
+        NotificationModel(
+          id: 'diverted-notif',
+          userId: 'user-resident-1',
+          type: NotificationType.milestone,
+          title: 'Milestone: 10 kg Diverted from Landfills!',
+          message:
+              'Incredible impact! Your sorting efforts have diverted over 10 kg of materials into circular recovery.',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
+          isRead: false,
+          category: 'Eco Milestone',
+        ),
+      ];
+
+      await tester.pumpWidget(buildNotificationsApp(
+        initialNotifications: duplicateNotifications,
+      ));
+      await tester.pumpAndSettle();
+
+      // Exactly ONE 'Milestone: First Pickup Completed!' should be displayed (deduplicated)
+      expect(find.text('Milestone: First Pickup Completed!'), findsOneWidget);
+
+      // Diverted notification must be completely excluded
+      expect(find.text('Milestone: 10 kg Diverted from Landfills!'), findsNothing);
+      expect(find.textContaining('diverted'), findsNothing);
     });
   });
 

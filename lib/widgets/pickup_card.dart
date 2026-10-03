@@ -46,6 +46,10 @@ class PickupCard extends StatelessWidget {
 
         return InteractiveBounce(
           onTap: onTap,
+          hoverLift: 5.0,
+          hoverScale: 1.012,
+          hoverShadowColor: categoryColor,
+          borderRadius: 16.0,
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.surfaceLight,

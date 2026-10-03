@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/notification_model.dart';
 import '../../routes/app_routes.dart';
@@ -48,6 +49,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   // Local state cache for demonstration/offline/in-memory manipulation
   List<NotificationModel>? _localNotifications;
+  Timer? _liveClockTimer;
 
   @override
   void initState() {
@@ -58,9 +60,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final uid = widget.initialUserId ?? _authService.currentUser?.uid;
     if (uid != null && uid.isNotEmpty) {
       _firestoreService.autoAdvancePickupLifecycle(uid);
-      _firestoreService.checkAndGenerateUpcomingReminders(uid);
-      _firestoreService.checkAndGenerateMilestones(uid);
+      _firestoreService.checkAndGenerateUpcomingReminders(uid).then((_) {
+        if (mounted) {
+          _firestoreService.checkAndGenerateMilestones(uid);
+        }
+      });
     }
+    // Real-time periodic update for relative timeAgo strings (Just now, 5m ago, etc.)
+    _liveClockTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// Exclude any unwanted diverted notifications and deduplicate identical notifications
+  List<NotificationModel> _cleanAndDeduplicate(List<NotificationModel> items) {
+    final withoutDiverted = items.where((n) {
+      final t = n.title.toLowerCase();
+      final m = n.message.toLowerCase();
+      return !t.contains('diverted') && !m.contains('diverted');
+    }).toList();
+
+    final seen = <String>{};
+    final uniqueItems = <NotificationModel>[];
+    for (final item in withoutDiverted) {
+      final key =
+          '${item.type.name}|${item.title.trim().toLowerCase()}|${item.pickupId ?? ''}';
+      if (seen.add(key)) {
+        uniqueItems.add(item);
+      }
+    }
+    return uniqueItems;
+  }
+
+  @override
+  void dispose() {
+    _liveClockTimer?.cancel();
+    super.dispose();
   }
 
   List<NotificationModel> _applyFilter(List<NotificationModel> items) {
@@ -163,13 +198,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final content = StreamBuilder<List<NotificationModel>>(
           stream: effectiveStream,
-          initialData: _localNotifications,
+          initialData: _localNotifications != null
+              ? _cleanAndDeduplicate(_localNotifications!)
+              : null,
           builder: (context, snapshot) {
             final rawList = snapshot.data ??
                 _localNotifications ??
                 const <NotificationModel>[];
 
-            final currentList = _localNotifications ?? rawList;
+            final currentList =
+                _cleanAndDeduplicate(_localNotifications ?? rawList);
             final filteredList = _applyFilter(currentList);
             final unreadCount = currentList.where((n) => !n.isRead).length;
 
@@ -211,27 +249,52 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                           // Notifications List
                           Expanded(
-                            child: filteredList.isEmpty
-                                ? _buildEmptyState()
-                                : ListView.separated(
-                                    physics: const BouncingScrollPhysics(),
-                                    padding: const EdgeInsets.only(bottom: 24),
-                                    itemCount: filteredList.length,
-                                    separatorBuilder: (context, index) =>
-                                        const SizedBox(height: 12),
-                                    itemBuilder: (context, index) {
-                                      final item = filteredList[index];
-                                      return _buildNotificationCard(
-                                        context: context,
-                                        notification: item,
-                                        availableWidth: width < 600
-                                            ? width - 32
-                                            : (contentMaxWidth < width
-                                                ? contentMaxWidth - 48
-                                                : width - 48),
-                                      );
-                                    },
-                                  ),
+                            child: RefreshIndicator(
+                              color: AppColors.primary,
+                              onRefresh: () async {
+                                final uid = widget.initialUserId ??
+                                    _authService.currentUser?.uid;
+                                if (uid != null && uid.isNotEmpty) {
+                                  await _firestoreService
+                                      .checkAndGenerateUpcomingReminders(uid);
+                                  await _firestoreService
+                                      .checkAndGenerateMilestones(uid);
+                                }
+                                if (mounted) setState(() {});
+                              },
+                              child: filteredList.isEmpty
+                                  ? ListView(
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      children: [
+                                        SizedBox(
+                                          height: constraints.maxHeight * 0.6,
+                                          child: _buildEmptyState(),
+                                        ),
+                                      ],
+                                    )
+                                  : ListView.separated(
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      padding:
+                                          const EdgeInsets.only(bottom: 24),
+                                      itemCount: filteredList.length,
+                                      separatorBuilder: (context, index) =>
+                                          const SizedBox(height: 12),
+                                      itemBuilder: (context, index) {
+                                        final item = filteredList[index];
+                                        return _buildNotificationCard(
+                                          context: context,
+                                          notification: item,
+                                          availableWidth: width < 600
+                                              ? width - 32
+                                              : (contentMaxWidth < width
+                                                  ? contentMaxWidth - 48
+                                                  : width - 48),
+                                        );
+                                      },
+                                    ),
+                            ),
                           ),
                         ],
                       ),
@@ -517,10 +580,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                notification.timeAgo,
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.textMuted,
+                              Flexible(
+                                child: Tooltip(
+                                  message: notification.formattedDateTime,
+                                  child: Text(
+                                    availableWidth < 340
+                                        ? notification.timeAgo
+                                        : notification.headerTimeLabel,
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                               if (isUnread) ...[

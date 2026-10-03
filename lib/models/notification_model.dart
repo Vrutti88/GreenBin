@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 
 /// Categories of notifications supported in GreenBin.
@@ -213,6 +214,35 @@ class NotificationModel {
     }
   }
 
+  /// Exact formatted time (e.g. "8:00 AM", "10:30 PM")
+  String get formattedTime {
+    return DateFormat('h:mm a').format(timestamp);
+  }
+
+  /// Exact date and time string (e.g. "Today, 8:00 AM", "Oct 2, 8:00 AM")
+  String get formattedDateTime {
+    final now = DateTime.now();
+    final isToday = now.year == timestamp.year &&
+        now.month == timestamp.month &&
+        now.day == timestamp.day;
+    final timeStr = formattedTime;
+    if (isToday) return 'Today, $timeStr';
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = yesterday.year == timestamp.year &&
+        yesterday.month == timestamp.month &&
+        yesterday.day == timestamp.day;
+    if (isYesterday) return 'Yesterday, $timeStr';
+    return '${DateFormat('MMM d').format(timestamp)}, $timeStr';
+  }
+
+  /// Compact header label combining relative time and exact time
+  /// e.g. "Just now", "15m ago • 8:00 AM", "Yesterday • 8:00 AM"
+  String get headerTimeLabel {
+    final ago = timeAgo;
+    if (ago == 'Just now') return ago;
+    return '$ago • $formattedTime';
+  }
+
   /// Default sample notifications for demonstration, testing, and offline modes.
   static List<NotificationModel> get defaultNotifications => [
         NotificationModel(
@@ -224,6 +254,18 @@ class NotificationModel {
           message:
               'North Eco Crew #4 is heading towards your location for the scheduled Plastic collection.',
           timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
+          isRead: false,
+          category: 'Plastic',
+        ),
+        NotificationModel(
+          id: 'notif-reminder-morning',
+          userId: 'user-resident-1',
+          pickupId: 'GB-TEST-1001',
+          type: NotificationType.pickupReminder,
+          title: 'Reminder: Someone Coming to Pickup',
+          message:
+              'Reminder: An Eco Collector is coming to pick up your Plastic recyclables this morning (8:00 AM - 10:00 AM). Please ensure your bins are placed outside and accessible.',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
           isRead: false,
           category: 'Plastic',
         ),
@@ -256,7 +298,7 @@ class NotificationModel {
           userId: 'user-resident-1',
           pickupId: 'GB-TEST-1003',
           type: NotificationType.pickupStatusChanged,
-          title: 'Materials Diverted & Collected',
+          title: 'Pickup Completed',
           message:
               'Your Glass recycling batch was successfully collected and transported to the Springfield Recovery Center.',
           timestamp: DateTime.now().subtract(const Duration(days: 2)),

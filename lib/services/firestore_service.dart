@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../models/user_model.dart';
 import '../models/pickup_model.dart';
 import '../models/notification_model.dart';
@@ -120,6 +121,8 @@ class FirestoreService {
 
     // Create real-time notification for the scheduled pickup
     try {
+      final formattedDate =
+          DateFormat('EEE, MMM d, yyyy').format(pickup.pickupDate);
       await createNotification(
         NotificationModel(
           id: '',
@@ -128,7 +131,7 @@ class FirestoreService {
           type: NotificationType.pickupScheduled,
           title: 'Pickup Confirmed',
           message:
-              'Your ${pickup.wasteCategory} waste pickup for ${pickup.pickupDate.day}/${pickup.pickupDate.month}/${pickup.pickupDate.year} at ${pickup.timeSlot} has been confirmed.',
+              'Your ${pickup.wasteCategory} waste pickup for $formattedDate at ${pickup.timeSlot} has been confirmed.',
           timestamp: DateTime.now(),
           isRead: false,
           category: pickup.wasteCategory,
@@ -136,6 +139,31 @@ class FirestoreService {
       );
     } catch (_) {
       // Safe fallback if notifications collection is restricted
+    }
+
+    // Pre-schedule dedicated morning reminder for someone coming to pickup
+    try {
+      final (pickupStart, _) = PreferencesService.parseSlotWindowStatic(
+        pickup.pickupDate,
+        pickup.timeSlot,
+      );
+      final morningReminderTime = pickupStart;
+      await createNotification(
+        NotificationModel(
+          id: '',
+          userId: pickup.userId,
+          pickupId: docRef.id,
+          type: NotificationType.pickupReminder,
+          title: 'Reminder: Someone Coming to Pickup',
+          message:
+              'Reminder: An Eco Collector is coming to pick up your ${pickup.wasteCategory} recyclables this morning (${pickup.timeSlot}). Please ensure your bins are placed outside and accessible.',
+          timestamp: morningReminderTime,
+          isRead: false,
+          category: pickup.wasteCategory,
+        ),
+      );
+    } catch (_) {
+      // Safe fallback
     }
 
     // Evaluate if this new pickup falls within user's reminder window
@@ -317,7 +345,7 @@ class FirestoreService {
       if (targetUserId != null && targetUserId.isNotEmpty) {
         if (statusUpdatesEnabled) {
           final notifTitle = status == PickupStatus.collected
-              ? 'Materials Diverted & Collected'
+              ? 'Pickup Completed'
               : status == PickupStatus.inTransit
                   ? 'Collection Crew En Route'
                   : 'Pickup Status Updated';
@@ -485,7 +513,9 @@ class FirestoreService {
   // NOTIFICATION OPERATIONS
   // ==========================================
 
-  /// Stream notifications for a specific resident (sorted by timestamp descending)
+  /// Stream notifications for a specific resident (sorted by timestamp descending,
+  /// delivering only notifications whose scheduled event time has arrived,
+  /// with strict deduplication and excluding unwanted diverted notifications)
   Stream<List<NotificationModel>> streamUserNotifications(String userId) {
     final col = _notificationsCol;
     if (col == null) return const Stream.empty();
@@ -494,12 +524,62 @@ class FirestoreService {
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
+      final now = DateTime.now();
       final notifs = snapshot.docs
           .map((doc) => NotificationModel.fromFirestore(doc))
+          .where((n) => !n.timestamp.isAfter(now))
+          // 1. Exclude any unwanted diverted notifications
+          .where((n) =>
+              !n.title.toLowerCase().contains('diverted') &&
+              !n.message.toLowerCase().contains('diverted'))
           .toList();
       notifs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return notifs;
+
+      // 2. Strict deduplication so identical notifications never appear twice
+      final seenKeys = <String>{};
+      final uniqueNotifs = <NotificationModel>[];
+      for (final n in notifs) {
+        final key = '${n.type.name}|${n.title.trim().toLowerCase()}|${n.pickupId ?? ''}';
+        if (seenKeys.add(key)) {
+          uniqueNotifs.add(n);
+        }
+      }
+      return uniqueNotifs;
     });
+  }
+
+  /// Cleans up any unwanted "diverted" notifications and deletes duplicate notifications
+  /// from the user's Firestore notifications collection.
+  Future<void> cleanDivertedAndDuplicateNotifications(String userId) async {
+    final notifsCol = _notificationsCol;
+    if (notifsCol == null || userId.isEmpty) return;
+
+    try {
+      final snap = await notifsCol.where('userId', isEqualTo: userId).get();
+      final seenKeys = <String>{};
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final title = (data['title'] as String? ?? '').trim().toLowerCase();
+        final message = (data['message'] as String? ?? '').trim().toLowerCase();
+        final pickupId = data['pickupId'] as String? ?? '';
+        final type = data['type'] as String? ?? '';
+
+        // 1. Delete any notifications with "diverted" in title or message
+        if (title.contains('diverted') || message.contains('diverted')) {
+          await doc.reference.delete();
+          continue;
+        }
+
+        // 2. Deduplicate: if duplicate document exists in Firestore, keep the first and delete extras
+        final key = '$type|$title|$pickupId';
+        if (!seenKeys.add(key)) {
+          await doc.reference.delete();
+        }
+      }
+    } catch (_) {
+      // Safe fallback
+    }
   }
 
   /// Mark a single notification as read
@@ -593,81 +673,188 @@ class FirestoreService {
   }
 
   // ==========================================
-  // REAL-TIME REMINDER GENERATION
+  // REAL-TIME NOTIFICATIONS & LIFECYCLE ENGINE
   // ==========================================
 
-  /// Check user's upcoming scheduled pickups and generate reminder notifications
-  /// if within the resident's reminder window (e.g. 1 day before, 2 hours before, etc.).
+  static final Set<String> _activeReminderSyncs = <String>{};
+  static final Set<String> _activeMilestoneSyncs = <String>{};
+
+  /// Check user's scheduled pickups and synchronize real-time lifecycle notifications:
+  /// 1. Pickup Reminders (stamped with the exact morning reminder time, never app-open time)
+  /// 2. Live Collection Updates (triggered when pickup window opens, stamped with start time)
+  /// 3. Completed Pickup Notifications (triggered when pickup window closes, stamped with end time)
+  /// 4. Auto-repairs any past notifications previously stamped with app-launch times or generic titles.
   Future<int> checkAndGenerateUpcomingReminders(String userId) async {
     final col = _pickupsCol;
     final notifsCol = _notificationsCol;
     if (col == null || notifsCol == null || userId.isEmpty) return 0;
 
+    // Concurrency lock: prevent parallel runs that can produce duplicate notifications
+    if (_activeReminderSyncs.contains(userId)) return 0;
+    _activeReminderSyncs.add(userId);
+
     try {
+      // First clean up any unwanted diverted notifications and database duplicates
+      await cleanDivertedAndDuplicateNotifications(userId);
+
       final prefsService = PreferencesService();
       final remindersEnabled = await prefsService.getPickupReminders();
-      if (!remindersEnabled) return 0;
-
-      final reminderWindow = await prefsService.getReminderWindow();
+      final statusUpdatesEnabled = await prefsService.getStatusUpdates();
       final now = DateTime.now();
 
-      // Query active scheduled pickups for this user
+      // Query all pickups for this user so reminders and arrival notifications
+      // are accurately generated and repaired regardless of lifecycle stage
       final snapshot = await col
           .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'Scheduled')
           .get();
 
-      int remindersCreated = 0;
+      int notificationsCreated = 0;
 
       for (final doc in snapshot.docs) {
         final pickup = PickupModel.fromFirestore(doc);
-        final reminderDueTime = prefsService.calculateReminderDateTime(
-          pickupDate: pickup.pickupDate,
-          timeSlot: pickup.timeSlot,
-          window: reminderWindow,
+        final (pickupStart, pickupEnd) =
+            PreferencesService.parseSlotWindowStatic(
+          pickup.pickupDate,
+          pickup.timeSlot,
         );
 
-        // Check if current time is on or after the reminder threshold,
-        // and before the pickup date has passed
-        final pickupEnd = pickup.pickupDate.add(const Duration(days: 1));
-        if (now.isAfter(reminderDueTime) && now.isBefore(pickupEnd)) {
-          // Check if a reminder notification already exists for this pickup
-          final existing = await notifsCol
+        // Morning reminder is anchored strictly to the morning of collection (e.g. 8:00 AM)
+        final morningReminderTime = pickupStart;
+
+        // ---------------------------------------------------------------------
+        // 1. MORNING REMINDER: SOMEONE COMING TO PICKUP
+        // ---------------------------------------------------------------------
+        final existingReminderSnap = await notifsCol
+            .where('userId', isEqualTo: userId)
+            .where('pickupId', isEqualTo: pickup.id)
+            .get();
+
+        final reminderDocs = existingReminderSnap.docs.where((d) {
+          final typeStr = d.data()['type'] as String? ?? '';
+          final titleStr = d.data()['title'] as String? ?? '';
+          return typeStr == NotificationType.pickupReminder.name ||
+              titleStr.contains('Reminder') ||
+              titleStr.contains('Coming to Pickup');
+        }).toList();
+
+        if (reminderDocs.isNotEmpty) {
+          // If a reminder notification was previously stamped with app-open time,
+          // night time, or had an old title, repair it to the true morning reminder!
+          for (final existingDoc in reminderDocs) {
+            final data = existingDoc.data();
+            final existingTs =
+                (data['timestamp'] as Timestamp?)?.toDate();
+            final existingTitle = data['title'] as String? ?? '';
+            final existingMsg = data['message'] as String? ?? '';
+
+            final needsTitleFix =
+                existingTitle != 'Reminder: Someone Coming to Pickup';
+            final needsMsgFix = !existingMsg.contains('Someone Coming to Pickup') &&
+                !existingMsg.contains('is coming to pick up');
+            // If stamped after pickup start (e.g. when app was opened later at night):
+            final needsTsRepair = existingTs != null &&
+                (existingTs.isAfter(pickupStart) || existingTs.isBefore(morningReminderTime));
+
+            if (needsTitleFix || needsMsgFix || needsTsRepair) {
+              await notifsCol.doc(existingDoc.id).update({
+                'title': 'Reminder: Someone Coming to Pickup',
+                'message':
+                    'Reminder: An Eco Collector is coming to pick up your ${pickup.wasteCategory} recyclables this morning (${pickup.timeSlot}). Please ensure your bins are placed outside and accessible.',
+                'timestamp': Timestamp.fromDate(morningReminderTime),
+                'type': NotificationType.pickupReminder.name,
+              });
+            }
+          }
+        } else if (remindersEnabled) {
+          // Deliver the morning reminder for someone coming to pickup
+          await createNotification(
+            NotificationModel(
+              id: '',
+              userId: userId,
+              pickupId: pickup.id,
+              type: NotificationType.pickupReminder,
+              title: 'Reminder: Someone Coming to Pickup',
+              message:
+                  'Reminder: An Eco Collector is coming to pick up your ${pickup.wasteCategory} recyclables this morning (${pickup.timeSlot}). Please ensure your bins are placed outside and accessible.',
+              timestamp: morningReminderTime,
+              isRead: false,
+              category: pickup.wasteCategory,
+            ),
+          );
+          notificationsCreated++;
+        }
+
+        // ---------------------------------------------------------------------
+        // 2. LIVE IN-PROGRESS NOTIFICATION: COLLECTOR ON THE WAY / EN ROUTE
+        // ---------------------------------------------------------------------
+        if (statusUpdatesEnabled &&
+            (now.isAfter(pickupStart) ||
+                pickup.status == PickupStatus.inTransit ||
+                pickup.status == PickupStatus.collected)) {
+          final existingTransitSnap = await notifsCol
               .where('userId', isEqualTo: userId)
               .where('pickupId', isEqualTo: pickup.id)
-              .where('type', isEqualTo: NotificationType.pickupReminder.name)
+              .where('title', isEqualTo: 'Collection Crew En Route')
               .limit(1)
               .get();
 
-          if (existing.docs.isEmpty) {
-            final dateStr =
-                '${pickup.pickupDate.day}/${pickup.pickupDate.month}/${pickup.pickupDate.year}';
+          if (existingTransitSnap.docs.isEmpty) {
             await createNotification(
               NotificationModel(
                 id: '',
                 userId: userId,
                 pickupId: pickup.id,
-                type: NotificationType.pickupReminder,
-                title: 'Upcoming Pickup Reminder',
+                type: NotificationType.pickupStatusChanged,
+                title: 'Collection Crew En Route',
                 message:
-                    'Reminder: Your ${pickup.wasteCategory} recycling collection is scheduled for $dateStr at ${pickup.timeSlot}. Please ensure your bins are placed outside.',
-                timestamp: DateTime.now(),
+                    'Our collection team (North Eco Crew #4) is heading to your address for your scheduled ${pickup.wasteCategory} pickup (${pickup.timeSlot}).',
+                timestamp: pickupStart,
                 isRead: false,
                 category: pickup.wasteCategory,
               ),
             );
-            remindersCreated++;
+            notificationsCreated++;
+          }
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. COMPLETED COLLECTION NOTIFICATION (After window concludes)
+        // ---------------------------------------------------------------------
+        if (statusUpdatesEnabled &&
+            (now.isAfter(pickupEnd) ||
+                pickup.status == PickupStatus.collected)) {
+          final existingCollectedSnap = await notifsCol
+              .where('userId', isEqualTo: userId)
+              .where('pickupId', isEqualTo: pickup.id)
+              .where('title', isEqualTo: 'Pickup Completed')
+              .limit(1)
+              .get();
+
+          if (existingCollectedSnap.docs.isEmpty) {
+            await createNotification(
+              NotificationModel(
+                id: '',
+                userId: userId,
+                pickupId: pickup.id,
+                type: NotificationType.pickupStatusChanged,
+                title: 'Pickup Completed',
+                message:
+                    'Your ${pickup.wasteCategory} recycling batch (${pickup.timeSlot}) was successfully collected and transported to the local recovery facility.',
+                timestamp: pickupEnd,
+                isRead: false,
+                category: pickup.wasteCategory,
+              ),
+            );
+            notificationsCreated++;
           }
         }
       }
 
-      if (remindersCreated > 0) {
-        await prefsService.triggerFeedbackIfEnabled();
-      }
-
-      return remindersCreated;
+      return notificationsCreated;
     } catch (_) {
       return 0;
+    } finally {
+      _activeReminderSyncs.remove(userId);
     }
   }
 
@@ -682,7 +869,14 @@ class FirestoreService {
     final notifsCol = _notificationsCol;
     if (col == null || notifsCol == null || userId.isEmpty) return 0;
 
+    // Concurrency lock: prevent duplicate milestone creation from simultaneous triggers
+    if (_activeMilestoneSyncs.contains(userId)) return 0;
+    _activeMilestoneSyncs.add(userId);
+
     try {
+      // First clean up any unwanted diverted notifications and database duplicates
+      await cleanDivertedAndDuplicateNotifications(userId);
+
       final prefsService = PreferencesService();
       final milestoneAlertsEnabled = await prefsService.getMilestoneAlerts();
       if (!milestoneAlertsEnabled) return 0;
@@ -694,17 +888,11 @@ class FirestoreService {
           .get();
       final collectedCount = collectedSnap.docs.length;
 
-      // Also check user profile kgRecycled if present
-      final userDoc = await _usersCol?.doc(userId).get();
-      final userKg =
-          (userDoc?.data()?['kgRecycled'] as num?)?.toDouble() ?? 0.0;
-      final effectiveKg = userKg > 0 ? userKg : (collectedCount * 4.5);
-
       // Existing notifications for this user to prevent duplicate milestone creation
       final existingNotifs =
           await notifsCol.where('userId', isEqualTo: userId).get();
       final existingTitles = existingNotifs.docs
-          .map((d) => d.data()['title'] as String? ?? '')
+          .map((d) => (d.data()['title'] as String? ?? '').trim().toLowerCase())
           .toSet();
 
       int milestonesCreated = 0;
@@ -720,29 +908,24 @@ class FirestoreService {
       }
       if (collectedCount >= 5) {
         potentialMilestones.add({
-          'title': 'Milestone: 5 Collections Diverted!',
+          'title': 'Milestone: 5 Collections Completed!',
           'message':
               'High five! You have completed 5 doorstep collections and earned the Bronze GreenBin badge.',
         });
       }
-      if (effectiveKg >= 10.0) {
+      if (collectedCount >= 10) {
         potentialMilestones.add({
-          'title': 'Milestone: 10 kg Diverted from Landfills!',
+          'title': 'Milestone: 10 Collections Completed!',
           'message':
-              'Incredible impact! Your sorting efforts have diverted over 10 kg of materials into circular recovery.',
-        });
-      }
-      if (effectiveKg >= 25.0) {
-        potentialMilestones.add({
-          'title': 'Milestone: 25 kg Eco Achiever!',
-          'message':
-              'Silver Eco Achiever: You have diverted 25 kg of recyclable resources into the circular economy!',
+              'Incredible dedication! You have successfully completed 10 doorstep collections.',
         });
       }
 
       for (final m in potentialMilestones) {
         final title = m['title']!;
-        if (!existingTitles.contains(title)) {
+        final lowerTitle = title.trim().toLowerCase();
+        if (!existingTitles.contains(lowerTitle)) {
+          existingTitles.add(lowerTitle);
           await createNotification(
             NotificationModel(
               id: '',
@@ -759,13 +942,12 @@ class FirestoreService {
         }
       }
 
-      if (milestonesCreated > 0) {
-        await prefsService.triggerFeedbackIfEnabled();
-      }
-
+      // Silent background sync without buzzing device on startup
       return milestonesCreated;
     } catch (_) {
       return 0;
+    } finally {
+      _activeMilestoneSyncs.remove(userId);
     }
   }
 }

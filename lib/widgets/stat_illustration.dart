@@ -367,3 +367,399 @@ class StatIllustration extends StatelessWidget {
     );
   }
 }
+
+/// Modern, high-fidelity thematic scene illustration for dashboard stat cards.
+/// Placed beside the metric value to enrich the card and eliminate empty whitespace.
+class StatSceneGraphic extends StatelessWidget {
+  final StatIllustrationType type;
+  final double size;
+
+  const StatSceneGraphic({
+    super.key,
+    required this.type,
+    this.size = 56.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    switch (type) {
+      case StatIllustrationType.pickups:
+        return _buildPickupsScene();
+      case StatIllustrationType.divertedKg:
+        return _buildDivertedKgScene();
+      case StatIllustrationType.activePickups:
+        return _buildActivePickupsScene();
+      case StatIllustrationType.zeroWasteRank:
+        return _buildZeroWasteRankScene();
+    }
+  }
+
+  /// 1. Total Pickups Scene:
+  /// Multi-layered eco electric recycling van, doorstep container, green leaf and speed lines.
+  Widget _buildPickupsScene() {
+    return Container(
+      width: size * 1.15,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFA7F3D0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF059669).withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background soft radial aura
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              width: size * 0.45,
+              height: size * 0.45,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFD1FAE5),
+              ),
+            ),
+          ),
+          // Road / baseline
+          Positioned(
+            bottom: size * 0.16,
+            left: size * 0.1,
+            right: size * 0.1,
+            child: Container(
+              height: 2,
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+          // Main Icon: Eco Delivery Van
+          Positioned(
+            left: size * 0.10,
+            bottom: size * 0.18,
+            child: Icon(
+              Icons.local_shipping_rounded,
+              size: size * 0.52,
+              color: const Color(0xFF059669),
+            ),
+          ),
+          // Doorstep Bin on the right
+          Positioned(
+            right: size * 0.10,
+            bottom: size * 0.18,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(
+                Icons.delete_outline_rounded,
+                size: size * 0.22,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Floating Eco Leaf with sparkle
+          Positioned(
+            top: size * 0.10,
+            right: size * 0.16,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16A34A),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+              child: Icon(
+                Icons.eco_rounded,
+                size: size * 0.20,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Sparkle star
+          Positioned(
+            top: size * 0.12,
+            left: size * 0.14,
+            child: Icon(
+              Icons.auto_awesome,
+              size: size * 0.18,
+              color: const Color(0xFF34D399),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 2. Diverted Kg Scene:
+  /// Precision scale with green leaves and weight badge.
+  Widget _buildDivertedKgScene() {
+    return Container(
+      width: size * 1.15,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDFA),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF99F6E4),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D9488).withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            Icons.scale_rounded,
+            size: size * 0.54,
+            color: const Color(0xFF0D9488),
+          ),
+          Positioned(
+            top: size * 0.10,
+            right: size * 0.12,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF14B8A6),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+              child: Icon(
+                Icons.recycling_rounded,
+                size: size * 0.20,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 3. Active Pickups Scene:
+  /// Dispatch clipboard with checklist, live orange clock, and pulsing status badge.
+  Widget _buildActivePickupsScene() {
+    return Container(
+      width: size * 1.15,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFFDE68A),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD97706).withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background soft circle
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              width: size * 0.45,
+              height: size * 0.45,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFEF3C7),
+              ),
+            ),
+          ),
+          // Main Icon: Active Pending Actions / Dispatch Clipboard
+          Positioned(
+            left: size * 0.10,
+            bottom: size * 0.14,
+            child: Icon(
+              Icons.pending_actions_rounded,
+              size: size * 0.52,
+              color: const Color(0xFFD97706),
+            ),
+          ),
+          // Clock Badge on the right
+          Positioned(
+            right: size * 0.10,
+            bottom: size * 0.16,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEA580C),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+              child: Icon(
+                Icons.access_time_filled_rounded,
+                size: size * 0.22,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Live Status Beacon on top-right
+          Positioned(
+            top: size * 0.10,
+            right: size * 0.14,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF22C55E).withValues(alpha: 0.4),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.check_rounded,
+                size: size * 0.16,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Transit radar lines in top-left
+          Positioned(
+            top: size * 0.12,
+            left: size * 0.14,
+            child: Icon(
+              Icons.sensors_rounded,
+              size: size * 0.20,
+              color: const Color(0xFFF59E0B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 4. Zero-Waste Rank Scene:
+  /// Gleaming Eco Trophy with emerald laurel, gold ribbon medal, and sparkle stars.
+  Widget _buildZeroWasteRankScene() {
+    return Container(
+      width: size * 1.15,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF5FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFE9D5FF),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background soft radial aura
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              width: size * 0.45,
+              height: size * 0.45,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFF3E8FF),
+              ),
+            ),
+          ),
+          // Main Icon: Eco Award Trophy Cup
+          Positioned(
+            left: size * 0.10,
+            bottom: size * 0.14,
+            child: Icon(
+              Icons.emoji_events_rounded,
+              size: size * 0.54,
+              color: const Color(0xFF7C3AED),
+            ),
+          ),
+          // Golden Star Ribbon badge on the right
+          Positioned(
+            right: size * 0.10,
+            bottom: size * 0.16,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                    blurRadius: 5,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.star_rounded,
+                size: size * 0.22,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Sprout badge on top-right
+          Positioned(
+            top: size * 0.10,
+            right: size * 0.16,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+              child: Icon(
+                Icons.eco_rounded,
+                size: size * 0.18,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Diamond sparkle in top-left
+          Positioned(
+            top: size * 0.12,
+            left: size * 0.14,
+            child: Icon(
+              Icons.auto_awesome,
+              size: size * 0.18,
+              color: const Color(0xFFA855F7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

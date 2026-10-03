@@ -65,8 +65,8 @@ void main() {
       expect(find.text('Zero-Waste Rank'), findsOneWidget);
       expect(find.text('Diverted (kg)'), findsNothing);
 
-      // 5. Upcoming Pickup section
-      expect(find.text('Upcoming Pickup'), findsOneWidget);
+      // 5. Upcoming Pickup section is removed to avoid duplicate schedule actions
+      expect(find.text('Upcoming Pickup'), findsNothing);
 
       // 6. Waste Category shortcuts
       expect(find.text('Recycling Categories'), findsOneWidget);

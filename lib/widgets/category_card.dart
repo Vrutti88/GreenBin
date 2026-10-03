@@ -42,6 +42,10 @@ class CategoryCard extends StatelessWidget {
 
         return InteractiveBounce(
           onTap: onTap,
+          hoverLift: 6.0,
+          hoverScale: 1.015,
+          hoverShadowColor: category.color,
+          borderRadius: 16.0,
           child: Container(
             decoration: BoxDecoration(
               color: isSelected
@@ -280,6 +284,10 @@ class CategoryCard extends StatelessWidget {
   Widget _buildHorizontalCard(BuildContext context) {
     return InteractiveBounce(
       onTap: onTap,
+      hoverLift: 4.0,
+      hoverScale: 1.01,
+      hoverShadowColor: category.color,
+      borderRadius: 14.0,
       child: Container(
         decoration: BoxDecoration(
           color: isSelected

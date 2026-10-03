@@ -1129,6 +1129,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     final color = accentColor ?? AppColors.primary;
     return InteractiveBounce(
+      hoverLift: 4.0,
+      hoverScale: 1.01,
+      hoverShadowColor: color,
+      borderRadius: 12.0,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
