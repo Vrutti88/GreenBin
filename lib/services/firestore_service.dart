@@ -177,38 +177,6 @@ class FirestoreService {
   }
 
 
-  /// Dynamically evaluates whether a pickup's scheduled window has started or passed,
-  /// and returns the updated model with the appropriate lifecycle status for UI display.
-  PickupModel evaluateAndAutoAdvancePickup(PickupModel pickup, [DateTime? referenceTime]) {
-    final now = referenceTime ?? DateTime.now();
-    if (pickup.status == PickupStatus.collected ||
-        pickup.status == PickupStatus.completed ||
-        pickup.status == PickupStatus.cancelled) {
-      return pickup;
-    }
-
-    final (start, end) = PreferencesService.parseSlotWindowStatic(
-      pickup.pickupDate,
-      pickup.timeSlot,
-    );
-
-    if (now.isAfter(end)) {
-      return pickup.copyWith(
-        status: PickupStatus.collected,
-        updatedAt: now,
-      );
-    } else if (now.isAfter(start)) {
-      if (pickup.status != PickupStatus.inTransit) {
-        return pickup.copyWith(
-          status: PickupStatus.inTransit,
-          assignedTeam: pickup.assignedTeam ?? 'North Eco Crew #4',
-          updatedAt: now,
-        );
-      }
-    }
-    return pickup;
-  }
-
   /// Keep the totalPickups counter on users/{userId} strictly in sync with the true count of pickups
   Future<void> syncUserPickupCount(String userId, int trueCount) async {
     final col = _usersCol;
@@ -255,8 +223,7 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) {
       final pickups = snapshot.docs
-          .map((doc) =>
-              evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc)))
+          .map((doc) => PickupModel.fromFirestore(doc))
           .toList();
       pickups.sort((a, b) => b.pickupDate.compareTo(a.pickupDate));
 
@@ -278,7 +245,7 @@ class FirestoreService {
 
     return col.snapshots().map((snapshot) {
       final pickups = snapshot.docs
-          .map((doc) => evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc)))
+          .map((doc) => PickupModel.fromFirestore(doc))
           .toList();
       pickups.sort((a, b) => b.pickupDate.compareTo(a.pickupDate));
       return pickups;
@@ -291,7 +258,7 @@ class FirestoreService {
     if (col == null) return null;
     final doc = await col.doc(pickupId).get();
     if (!doc.exists) return null;
-    return evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc));
+    return PickupModel.fromFirestore(doc);
   }
 
   /// Real-time stream of a single pickup document by ID
@@ -301,7 +268,7 @@ class FirestoreService {
 
     return col.doc(pickupId).snapshots().map((doc) {
       if (!doc.exists) return null;
-      return evaluateAndAutoAdvancePickup(PickupModel.fromFirestore(doc));
+      return PickupModel.fromFirestore(doc);
     });
   }
 
@@ -422,40 +389,6 @@ class FirestoreService {
 
         // Evaluate milestone awards
         await checkAndGenerateMilestones(targetUserId);
-      }
-    } catch (_) {
-      // Safe fallback
-    }
-  }
-
-  /// Automatically inspects a single pickup request and advances its state based on current time:
-  /// - If the current time is past the slot end time: advances to Collected and increments stats.
-  /// - If the current time is within or past the slot start time: advances to In Transit ("Crew En Route").
-  Future<void> checkAndAdvanceSinglePickup(String pickupId) async {
-    try {
-      final pickup = await getPickupById(pickupId);
-      if (pickup == null) return;
-      if (pickup.status == PickupStatus.collected ||
-          pickup.status == PickupStatus.cancelled) {
-        return;
-      }
-
-      final (start, end) = PreferencesService.parseSlotWindowStatic(
-        pickup.pickupDate,
-        pickup.timeSlot,
-      );
-      final now = DateTime.now();
-
-      if (now.isAfter(end)) {
-        await markPickupCollected(pickupId);
-      } else if (now.isAfter(start)) {
-        if (pickup.status != PickupStatus.inTransit) {
-          await updatePickupStatus(
-            pickupId: pickupId,
-            status: PickupStatus.inTransit,
-            assignedTeam: 'North Eco Crew #4',
-          );
-        }
       }
     } catch (_) {
       // Safe fallback

@@ -50,9 +50,6 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
     super.initState();
     _resolvedInitialPickup = widget.initialPickup;
     _resolvedPickupId = widget.initialPickup?.id ?? widget.pickupId ?? '';
-    if (_resolvedPickupId.isNotEmpty) {
-      _firestoreService.checkAndAdvanceSinglePickup(_resolvedPickupId);
-    }
   }
 
   @override
