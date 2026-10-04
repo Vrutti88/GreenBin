@@ -1,167 +1,180 @@
-# GreenBin — Smart Community Waste & Recycling Management
+# GreenBin — Community Recycling Pickup Scheduler App
 
-GreenBin is a responsive Flutter application designed to streamline community waste segregation, pickup scheduling, and recycling tracking across Mobile, Tablet, and Desktop platforms.
-
----
-
-## 🚀 Firebase Setup Guide
-
-Follow these steps to connect your Firebase project to GreenBin.
-
-### Prerequisites
-
-1. **Flutter SDK** (v3.13.0 or higher) installed and configured:
-   ```bash
-   flutter doctor
-   ```
-2. **Firebase CLI** installed:
-   ```bash
-   npm install -g firebase-tools
-   ```
-3. **FlutterFire CLI** installed:
-   ```bash
-   dart pub global activate flutterfire_cli
-   export PATH="$PATH":"$HOME/.pub-cache/bin"
-   ```
+An eco-friendly, responsive cross-platform Flutter application designed to empower communities to schedule recyclable waste pickups, educate residents on proper waste segregation, and track collection statuses in real time using Cloud Firestore.
 
 ---
 
-### Step 1: Create a Firebase Project
+## 🌐 Live Web Deployment & Android APK
 
-1. Go to the [Firebase Console](https://console.firebase.google.com/).
-2. Click **Add project** (or **Create a project**).
-3. Name your project (e.g., `greenbin-app`).
-4. (Optional) Enable or disable Google Analytics as desired.
-5. Click **Create Project** and wait for provisioning to finish.
-
----
-
-### Step 2: Enable Firebase Authentication
-
-1. In your Firebase Console, navigate to **Build > Authentication** in the left sidebar.
-2. Click **Get Started**.
-3. Under the **Sign-in method** tab:
-   - Select **Email/Password**.
-   - Toggle **Enable** to ON (leave "Email link / passwordless" disabled).
-   - Click **Save**.
+| Platform | Deployment / Download | Status |
+| :--- | :--- | :--- |
+| **Web App (Live)** | [https://greenbin-41080.web.app](https://greenbin-41080.web.app) | 🟢 Live (Firebase Hosting) |
+| **Alternative Web Link** | [https://greenbin-41080.firebaseapp.com](https://greenbin-41080.firebaseapp.com) | 🟢 Live (CDN Edge) |
+| **Android APK** | [`greenbin-release.apk`](greenbin-release.apk) | 🟢 Built (Android 15 / SDK 35 Ready) |
+| **Firebase Project** | `greenbin-41080` | 🟢 Auth + Cloud Firestore Active |
 
 ---
 
-### Step 3: Enable Cloud Firestore Database
+## 📌 Problem Statement
 
-1. In the Firebase Console, navigate to **Build > Firestore Database**.
-2. Click **Create database**.
-3. Choose your database location (select a multi-region or region closest to your users, e.g., `us-central1` or `asia-south1`).
-4. Select **Start in production mode** (our security rules will manage access).
-5. Click **Enable**.
+> **"GreenBin wants an app where a resident schedules a recyclable-waste pickup by selecting waste type and preferred date/time, and the request is stored centrally so the community's collection team can view and manage it."**
+
+### Problem Justification
+Urban and suburban communities face significant waste mismanagement challenges due to irregular collection schedules, lack of resident awareness regarding recyclable segregation, and the absence of centralized logistics. Traditional recycling methods rely heavily on roadside dumps or informal collectors, leading to contaminated recyclable batches and low recycling yields. 
+
+**GreenBin bridges this gap by providing:**
+1. **Resident Empowerment**: Easy, structured scheduling with category-specific instructions (Paper, Plastic, Glass, Metal, Electronics, Organic) to eliminate contamination at the source.
+2. **Transparent Lifecycle Tracking**: Real-time status visibility (`Scheduled` → `Collected`) so residents know exactly when their recyclables are collected.
+3. **Centralized Cloud Backend**: Centralized Cloud Firestore storage allowing community collection teams to plan optimal pickup routes, balance daily collection loads, and verify collections with zero paperwork.
 
 ---
 
-### Step 4: Configure Platforms with FlutterFire CLI
+## 🎯 Objectives
 
-From the root of the GreenBin repository, log in to Firebase and generate your project-specific configurations:
+* **UI / Widgets**: Build **Schedule Pickup**, **My Pickups**, and **Waste Category Guide** screens using standard Flutter `Form`, `ListView`, and `Card` widgets.
+* **Styling & Theming**: Apply an eco-friendly **Material 3** theme with vibrant recycling-category color coding (Emerald greens, ocean blues, amber, slate, and clean neutrals).
+* **Dart Logic**: Implement type-safe **Named Routes with Arguments** to pass the selected waste category from the Category Guide directly into the Schedule form.
+* **Figma & UX**: Design a clean, guided flow covering every screen with step indicators, progress cues, and intuitive touch feedback.
+* **Pickup Entry Details**: Display waste category badge, scheduled date, time slot, and real-time pickup status (`Scheduled` or `Collected`) on every entry in **My Pickups**.
 
-```bash
-# 1. Log in to your Firebase account
-firebase login
+---
 
-# 2. Configure FlutterFire (select Android, iOS, Web, macOS, Windows)
-flutterfire configure
+## ✨ Outcomes
+
+* **Form Validation**: The Schedule Pickup form strictly validates waste category selection, pickup address, date selection, and time slot before submission.
+* **Centralized Firestore Storage**: Submitted pickup requests are created directly in Cloud Firestore with an initial status of `Scheduled`.
+* **Real-Time Status Reflection**: The My Pickups screen reflects live status changes (`Scheduled` / `Collected`) fetched directly from Firestore snapshots.
+* **Guided Routing**: The Waste Category Guide screen navigates to a pre-filled Schedule form via route arguments, reducing user data-entry effort.
+
+---
+
+## 📦 Deliverables
+
+| Deliverable | Description & Implementation |
+| :--- | :--- |
+| **Figma Design** | End-to-end design prototype covering onboarding, waste category education, schedule form with progress steps, and pickup-tracking list. |
+| **UI / Widgets** | Modular Flutter widget architecture: `SchedulePickupScreen` (`Form`, validation, date/time pickers), `CategoryGuideScreen` (`Card`, grid layout), and `PickupsListScreen` (`ListView.separated`, status badges). |
+| **Styling / Theming** | Eco-friendly Material 3 theme (`AppTheme`) with category color palettes, dark-mode support, dynamic card elevation, and smooth micro-animations. |
+| **Dart Logic** | Named routing system (`AppRoutes`) passing `SchedulePickupArguments` across screens with null-safe form validation logic. |
+| **Firestore Integration** | Production Cloud Firestore service (`FirestoreService`) managing pickups collection, user profiles, and role-based permissions (`firestore.rules`). |
+| **Responsive Prototype** | Fluid responsiveness across Mobile, Tablet, and Desktop/Web breakpoints (`ResponsiveLayout`). |
+
+---
+
+## 🏗️ Architecture & Key Screens
+
+```
+lib/
+├── main.dart                       # App entry point, Firebase init & multi-provider setup
+├── firebase_options.dart           # FlutterFire generated config
+├── theme/
+│   └── app_theme.dart              # Material 3 eco-friendly color scheme & typography
+├── routes/
+│   └── app_routes.dart             # Named routes & argument parsing
+├── models/
+│   ├── pickup_model.dart           # Pickup request data model with JSON/Firestore converters
+│   ├── category_model.dart         # Waste categories metadata (Paper, Plastic, Metal, etc.)
+│   ├── user_model.dart             # Resident & Collector profile model
+│   └── notification_model.dart     # System notification model
+├── services/
+│   ├── auth_service.dart           # Firebase Authentication (Email/Password, state stream)
+│   └── firestore_service.dart      # Cloud Firestore CRUD & real-time snapshot streams
+├── screens/
+│   ├── auth/                       # Login & Registration screens
+│   ├── home/                       # Dashboard with quick actions & recycling stats
+│   ├── schedule/                   # Guided pickup scheduling form & confirmation
+│   ├── pickups/                    # My Pickups real-time list & pickup detail screen
+│   ├── guide/                      # Waste Category Guide with recyclable rules
+│   └── profile/                    # User profile, address, and community settings
+└── widgets/                        # Reusable UI components (PickupCard, CategoryCard, etc.)
 ```
 
-- When prompted, select your newly created Firebase project from the list.
-- Select the platforms you want to support (Android, iOS, Web, macOS, Windows).
-- FlutterFire will automatically generate/update [`lib/firebase_options.dart`](lib/firebase_options.dart) and register the native configuration files.
-
 ---
 
-### Step 5: Deploy Firestore Security Rules & Indexes
+## 🔒 Cloud Firestore Data Schema
 
-GreenBin comes pre-configured with security rules in [`firestore.rules`](firestore.rules) and query indexes in [`firestore.indexes.json`](firestore.indexes.json).
-
-Deploy them directly using the Firebase CLI:
-
-```bash
-# Ensure you are linked to your project
-firebase use --add
-
-# Deploy security rules and indexes
-firebase deploy --only firestore:rules,firestore:indexes
-```
-
----
-
-### Step 6: Firestore Schema Reference
-
-#### 1. `users/{userId}`
-Stores user profiles and role permissions:
+### 1. `pickups/{pickupId}`
 ```json
 {
-  "name": "Jane Doe",
-  "email": "jane@example.com",
-  "phone": "+1234567890",
-  "community": "Maple Grove",
-  "address": "123 Green St, Apt 4B",
-  "role": "resident", // "resident" | "collector" | "admin"
-  "createdAt": "Timestamp"
-}
-```
-
-#### 2. `pickups/{pickupId}`
-Stores pickup scheduling requests:
-```json
-{
+  "id": "auto_generated_doc_id",
   "userId": "firebase_auth_uid",
+  "userName": "Jane Doe",
   "wasteCategory": "Plastic",
   "pickupDate": "Timestamp",
   "timeSlot": "09:00 AM - 11:00 AM",
-  "address": "123 Green St, Apt 4B",
-  "notes": "Recyclables placed in blue bin",
-  "status": "Scheduled", // "Scheduled" | "Collected" | "Cancelled"
+  "address": "123 Eco Green Way, Apt 4B",
+  "notes": "Recyclables placed in marked blue bin outside door",
+  "status": "Scheduled",
   "assignedTeam": null,
   "createdAt": "Timestamp",
   "updatedAt": "Timestamp"
 }
 ```
 
-#### 3. `notifications/{notificationId}`
-Stores user-specific status updates and reminders:
+### 2. `users/{userId}`
 ```json
 {
-  "userId": "firebase_auth_uid",
-  "title": "Pickup Scheduled",
-  "message": "Your Plastic waste pickup is confirmed for tomorrow.",
-  "timestamp": "Timestamp",
-  "isRead": false,
-  "type": "scheduled" // "scheduled" | "reminder" | "status"
+  "id": "firebase_auth_uid",
+  "name": "Jane Doe",
+  "email": "jane@greenbin.org",
+  "phone": "+1-555-0199",
+  "community": "Maple Grove Eco Community",
+  "address": "123 Eco Green Way, Apt 4B",
+  "role": "resident",
+  "createdAt": "Timestamp"
 }
 ```
 
 ---
 
-### Step 7: Run the Application
+## 🛡️ Security Rules Summary (`firestore.rules`)
 
-Once your Firebase project is configured:
+* **Resident Self-Service**: Residents can create new `Scheduled` pickup requests and view/cancel their own pickups.
+* **Collector Privilege**: Only authenticated users with the `collector` or `admin` role can update a pickup status to `Collected`.
+* **Zero Privilege Escalation**: Users cannot modify their own `role` field upon signup.
 
+---
+
+## 🚀 Getting Started Locally
+
+### Prerequisites
+* Flutter SDK (`>= 3.13.0`)
+* Dart SDK (`>= 3.1.0`)
+* Firebase CLI (`firebase-tools`)
+
+### Setup & Run
 ```bash
-# Get dependencies
+# 1. Clone repository
+git clone https://github.com/Vrutti88/GreenBin.git
+cd GreenBin
+
+# 2. Install dependencies
 flutter pub get
 
-# Run analyzer & test suite
+# 3. Run analyzer and unit tests
 flutter analyze
 flutter test
 
-# Run app on your target device / browser
-flutter run -d chrome      # Web
-flutter run -d macos       # macOS
-flutter run                # Connected Android / iOS device
+# 4. Run on Web
+flutter run -d chrome
+
+# 5. Run on Android
+flutter run -d android
+```
+
+### Build for Production
+```bash
+# Build Web release
+flutter build web --release
+
+# Deploy to Firebase Hosting
+firebase deploy --only hosting
+
+# Build Android release APK
+flutter build apk --release
 ```
 
 ---
 
-## 🛡️ Security Rules Summary
-
-- **Self-Service Restriction:** Residents can only read and modify their own user document and pickup requests.
-- **Collector Role Integrity:** Users cannot assign themselves `collector` or `admin` roles upon signup.
-- **Status Validation:** Only collectors or admins can mark a pickup as `"Collected"`. Residents may only cancel a `"Scheduled"` pickup.
-- **Safe Fallback:** The codebase includes graceful fallbacks so unit and widget tests run offline without requiring live Firebase credentials.
+## 📄 License
+This project is licensed under the MIT License — see the LICENSE file for details.
