@@ -39,6 +39,7 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
   final ValueChanged<int>? onDesktopDestinationSelected;
   final Widget body;
   final String? title;
+  final Widget? titleWidget;
   final Widget? leading;
   final List<Widget>? actions;
   final Widget? floatingActionButton;
@@ -60,6 +61,7 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
     this.onDesktopDestinationSelected,
     required this.body,
     this.title,
+    this.titleWidget,
     this.leading,
     this.actions,
     this.floatingActionButton,
@@ -90,9 +92,9 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
           final safeIndex = currentIndex.clamp(0, effectiveDests.length - 1);
 
           return Scaffold(
-            appBar: title != null
+            appBar: (titleWidget != null || title != null)
                 ? AppBar(
-                    title: Text(title!),
+                    title: titleWidget ?? Text(title!),
                     leading: leading,
                     actions: actions,
                   )
@@ -136,9 +138,9 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
         final requiredNavWidth = (isDesktop ? 270.0 : 80.0) + 1.0;
         if (constraints.maxWidth < requiredNavWidth) {
           return Scaffold(
-            appBar: title != null
+            appBar: (titleWidget != null || title != null)
                 ? AppBar(
-                    title: Text(title!),
+                    title: titleWidget ?? Text(title!),
                     leading: leading,
                     actions: actions,
                   )
@@ -169,9 +171,9 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
               // Main Responsive Body Area
               Expanded(
                 child: Scaffold(
-                  appBar: title != null
+                  appBar: (titleWidget != null || title != null)
                       ? AppBar(
-                          title: Text(title!),
+                          title: titleWidget ?? Text(title!),
                           leading: leading,
                           actions: actions,
                         )

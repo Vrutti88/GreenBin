@@ -404,6 +404,46 @@ class _HomeScreenState extends State<HomeScreen> {
           tabletTrailing: _buildTabletTrailing(unreadCount),
           desktopSelectedIndex: _desktopIndex,
           onDesktopDestinationSelected: _onDesktopSelect,
+          titleWidget: _activeTab == HomeNavTab.home
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.28),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.recycling_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'GreenBin Dashboard',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                )
+              : null,
           title: _getTabTitle(_activeTab),
           leading: _activeTab != HomeNavTab.home
               ? IconButton(
