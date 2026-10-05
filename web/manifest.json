@@ -1,11 +1,11 @@
 {
-    "name": "greenbin",
-    "short_name": "greenbin",
+    "name": "GreenBin — Community Recycling Pickup Scheduler",
+    "short_name": "GreenBin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#2E7D32",
+    "theme_color": "#2E7D32",
+    "description": "GreenBin helps residents schedule recyclable waste pickups and track collection in real time.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
