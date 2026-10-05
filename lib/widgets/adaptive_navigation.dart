@@ -171,9 +171,9 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
               // Main Responsive Body Area
               Expanded(
                 child: Scaffold(
-                  appBar: (titleWidget != null || title != null)
+                  appBar: title != null
                       ? AppBar(
-                          title: titleWidget ?? Text(title!),
+                          title: Text(title!),
                           leading: leading,
                           actions: actions,
                         )
