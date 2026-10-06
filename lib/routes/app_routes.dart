@@ -23,7 +23,6 @@ import '../screens/schedule/review_pickup_screen.dart';
 import '../screens/schedule/schedule_pickup_screen.dart';
 import '../screens/splash/splash_screen.dart';
 
-/// Centralized route definitions and route generator for GreenBin.
 class AppRoutes {
   static const String splash = '/';
   static const String onboarding = '/onboarding';

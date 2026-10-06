@@ -7,7 +7,6 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase with platform-specific options
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -19,7 +18,6 @@ void main() async {
   runApp(const GreenBinApp());
 }
 
-/// Root Application Widget for GreenBin
 class GreenBinApp extends StatelessWidget {
   const GreenBinApp({super.key});
 
